@@ -1,80 +1,234 @@
-# Procurement Intelligence MVP – Learning LLM Engineering by Building
+# Procurement Intelligence AI
 
-This repository documents my journey learning **LLM engineering** by building real, working applications instead of isolated prompt experiments.
+> Automated tender monitoring and bid generation using local LLMs
 
-The first milestone is a **one-file, end-to-end LLM-powered application** that:
-
-- filters public procurement tenders,
-- rates their business attractiveness,
-- generates structured bid document content,
-
-all while enforcing **reliable structured outputs** using **Pydantic**.
-
-This repo is intentionally designed as a **learning artifact**:
-each important step is captured as a **stable version** that matches an article or explanation.
+[Quick Start](#quick-start) | [Learning Path](#learning-path) | [Architecture](#architecture) | [Examples](#examples)
 
 ---
 
-## What this version demonstrates (v0.1)
+## What This Does
 
-This version corresponds to the article:
+Automatically monitors procurement sites, filters opportunities, rates them, and generates professional bid documents using local LLMs.
 
-> **“I Built a One-File Procurement ‘AI Analyst’ to Learn LLM Engineering (and It Actually Works)”**
+**Key Features:**
+- Filters procurement tenders for relevance (cybersecurity, AI, software)
+- Rates business attractiveness with multi-dimensional scoring
+- Generates structured bid document content
+- Enforces reliable structured outputs using Pydantic
+- Works with local LLMs (LM Studio) and cloud APIs (Groq)
 
-Key concepts illustrated:
-
-- LLMs as **software components**, not chatbots
-- Structured JSON outputs enforced with **Pydantic**
-- Prompt patterns for classification, scoring, and generation
-- Multi-agent pipeline:
-  - Filter agent (relevance)
-  - Rating agent (business evaluation)
-  - Document generator (proposal drafting)
-- Explicit orchestration and branching logic
-- Retry and validation strategy for unreliable LLM outputs
-- Local inference using **LM Studio** (OpenAI-compatible API)
-
-Everything is contained in **one Python file** on purpose, to make the learning flow easy to follow.
+**Tech Stack:**
+- **LLM Runtime:** LM Studio (local development) / Groq (production)
+- **Models:** Llama 3.1 8B and similar
+- **Framework:** Pure Python with Pydantic for validation
+- **Architecture:** Multi-agent pipeline with explicit orchestration
 
 ---
 
-## High-level architecture
+## Architecture
 
-The application follows a simple, explicit pipeline:
+The application follows a clean, explicit pipeline:
 
-1. **Input**: a procurement tender
-2. **Filter Agent**  
-   → Is this tender relevant to cybersecurity, AI, or software?
-3. **Rating Agent**  
-   → Is it worth pursuing? What are the risks and chances?
-4. **Document Generator**  
-   → Generate structured bid content _only if_ the opportunity is strong
-5. **Output**: a validated, structured result object
+1. **Filter Agent** - Classifies tender relevance
+2. **Rating Agent** - Evaluates business opportunity
+3. **Document Generator** - Creates structured bid content
+4. **Orchestrator** - Manages workflow and error handling
 
-The LLM is wrapped behind a single service that:
+**Design Principles:**
+- LLMs as software components, not chatbots
+- Structured JSON outputs validated with Pydantic
+- Retry logic for unreliable LLM responses
+- Clean separation between agents, models, and services
 
-- enforces JSON output,
-- cleans malformed responses,
-- validates everything with Pydantic,
-- retries on failure.
-
----
-
-## Versioning strategy (important)
-
-This repository uses a **learning-friendly versioning strategy**:
-
-- `main` always contains the **latest stable, runnable code**
-- **Git tags** are used to capture **immutable snapshots** that correspond to articles or learning milestones
-
-### Why tags?
-
-- Tags never move → readers always see the _exact_ code used in an article
-- `main` can continue evolving without breaking older explanations
-- No long-lived maintenance branches needed
-
-For this article, you should check out the tag:
-
-```bash
-git checkout v0.1-article-procurement-mvp
 ```
+src/procurement_ai/
+├── agents/          # Filter, rating, and generator agents
+├── services/        # LLM service abstraction
+├── orchestration/   # Workflow coordination
+├── models.py        # Pydantic data models
+└── config.py        # Configuration management
+```
+
+---
+
+## Quick Start
+
+**Prerequisites:**
+- Python 3.9+
+- LM Studio running locally (or Groq API key)
+
+**Setup (2 minutes):**
+```bash
+# Clone and install
+git clone https://github.com/yourusername/procurement-ai.git
+cd procurement-ai
+pip install -e .
+
+# Run demo
+python examples/quickstart.py
+```
+
+**Expected output:**
+```
+Filtered tender: Relevant
+Rating: 8.5/10 (High confidence)
+Generated bid document with 3 sections
+```
+
+**Next Steps:**
+- [Follow the learning path](docs/LEARNING_PATH.md) to understand how it works
+- [Run batch processing example](examples/batch_processing.py) for multiple tenders
+- [Explore experiments](experiments/) to see prompt engineering iterations
+
+---
+
+## Learning Path
+
+This project is designed as a learning artifact following the fast.ai philosophy: learn by building real things.
+
+**Progressive Learning:**
+
+| Resource | Type | Focus |
+|----------|------|-------|
+| [Hello LLM](learn/01_hello_llm.ipynb) | Notebook | First API call, structured outputs |
+| [Learning Path Guide](docs/LEARNING_PATH.md) | Documentation | Complete curriculum outline |
+| [Prompt Variations](experiments/01_prompt_varations.py) | Experiment | Prompt engineering iterations |
+| [Temperature Impact](experiments/02_temperature_impact.py) | Experiment | Parameter optimization |
+
+**Key Learnings:**
+- How to structure LLM outputs with Pydantic
+- Prompt engineering for classification and generation tasks
+- Multi-agent orchestration patterns
+- Retry strategies for production reliability
+- Local vs cloud LLM tradeoffs
+
+---
+
+## Examples
+
+### Quickstart Demo
+```python
+from procurement_ai import ProcurementOrchestrator
+from procurement_ai.models import Tender
+
+orchestrator = ProcurementOrchestrator()
+tender = Tender(
+    id="DEMO-001",
+    title="AI-Powered Threat Detection System",
+    description="Government agency seeks vendor for cybersecurity platform...",
+    organization="National Cybersecurity Agency",
+    value=2500000.0,
+    deadline="2024-12-31"
+)
+
+result = await orchestrator.process_tender(tender)
+print(f"Relevant: {result.is_relevant}")
+print(f"Rating: {result.rating}/10")
+```
+
+See [examples/](examples/) directory for more:
+- [quickstart.py](examples/quickstart.py) - 5-minute demo
+- [batch_processing.py](examples/batch_processing.py) - Process multiple tenders
+- [sample_data.py](examples/sample_data.py) - Test data generator
+
+---
+
+## Installation
+
+**As a library:**
+```bash
+pip install git+https://github.com/yourusername/procurement-ai.git
+```
+
+**For development:**
+```bash
+git clone https://github.com/yourusername/procurement-ai.git
+cd procurement-ai
+pip install -e ".[dev]"
+```
+
+**Requirements:**
+- Python 3.9+
+- httpx >= 0.25
+- pydantic >= 2.0
+
+---
+
+## Project Structure
+
+```
+procurement-ai/
+├── src/procurement_ai/       # Main package
+│   ├── agents/              # Filter, rating, generator agents
+│   ├── services/            # LLM service abstraction
+│   ├── orchestration/       # Workflow coordination
+│   ├── models.py            # Pydantic data models
+│   └── config.py            # Configuration
+├── examples/                # Runnable examples
+├── experiments/             # Research and optimization
+├── learn/                   # Learning notebooks
+├── tests/                   # Test suite
+├── docs/                    # Documentation
+└── benchmarks/              # Performance data
+```
+
+---
+
+## Configuration
+
+Configure via environment variables or `config.py`:
+
+```python
+from procurement_ai import Config
+
+config = Config(
+    llm_base_url="http://localhost:1234/v1",
+    llm_model="llama-3.1-8b-instruct",
+    max_retries=3,
+    timeout=30.0
+)
+```
+
+**Environment variables:**
+- `LLM_BASE_URL` - LLM API endpoint (default: http://localhost:1234/v1)
+- `LLM_MODEL` - Model name (default: llama-3.1-8b-instruct)
+- `LLM_API_KEY` - API key for cloud providers
+
+---
+
+## Roadmap
+
+**Current (v0.1):**
+- Multi-agent pipeline
+- LM Studio support
+- Structured outputs with Pydantic
+- Basic orchestration
+
+**Planned (v0.2+):**
+- Cloud LLM support (Groq, OpenAI)
+- Web scraping for real tender data
+- Streamlit UI
+- Benchmarking suite
+- Multi-language support
+
+---
+
+## Contributing
+
+This is a learning project, but contributions are welcome:
+- Bug reports and fixes
+- Documentation improvements
+- New examples or experiments
+- Performance optimizations
+
+---
+
+## License
+
+MIT License - See LICENSE file for details
+
+---
+
+## About
+
+Built as a learning project to transition from traditional ML to LLM engineering. Focus is on clean architecture, structured outputs, and practical production patterns rather than research novelty.
