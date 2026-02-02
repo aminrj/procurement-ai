@@ -173,11 +173,11 @@ class UserRepository(BaseRepository):
         )
     
     def get_by_email(self, email: str) -> Optional[User]:
-        """Get user by email"""
+        """Get user by email (case-insensitive)"""
         return (
             self.session.query(User)
             .filter(
-                User.email == email,
+                User.email.ilike(email),
                 User.is_deleted == False
             )
             .first()

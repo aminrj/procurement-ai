@@ -60,11 +60,6 @@ class LLMService:
                 response = await self._call_api(messages, temperature)
                 cleaned = self._clean_json(response)
                 
-                # Debug output (can be removed later)
-                if attempt > 0:  # Only show debug on retries
-                    print(f"    Raw response: {response[:200]}...")
-                    print(f"    Cleaned: {cleaned[:200]}...")
-                
                 # Additional validation - check if it looks like JSON
                 if not cleaned.startswith('{') or not cleaned.endswith('}'):
                     raise ValueError(f"Response doesn't look like JSON: {cleaned[:100]}...")
@@ -77,7 +72,6 @@ class LLMService:
                 
                 return response_model.model_validate(parsed)
             except Exception as e:
-                print(f"    Attempt {attempt + 1}/{max_retries} failed: {str(e)[:100]}...")
                 if attempt == max_retries - 1:
                     raise Exception(f"Failed after {max_retries} attempts: {e}")
                 await asyncio.sleep(2)  # Longer pause for retries

@@ -21,7 +21,7 @@ class TenderCategory(str, Enum):
 
 class Tender(BaseModel):
     """Input tender data"""
-    id: str
+    id: Optional[str] = None
     title: str
     description: str
     organization: str
