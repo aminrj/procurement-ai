@@ -7,15 +7,15 @@ services:
     image: postgres:15-alpine
     container_name: procurement-ai-db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: procurement_ai
+      POSTGRES_USER: procurement
+      POSTGRES_PASSWORD: procurement
+      POSTGRES_DB: procurement
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U procurement"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,6 +37,33 @@ services:
       retries: 5
     networks:
       - procurement-network
+
+  # FastAPI application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: procurement-ai-api
+    environment:
+      DATABASE_URL: postgresql://procurement:procurement@postgres:5432/procurement
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:1234/v1}
+      LLM_MODEL: ${LLM_MODEL:-local-model}
+      LLM_API_KEY: ${LLM_API_KEY:-not-needed}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./docs:/app/docs
+    networks:
+      - procurement-network
+    command: uvicorn procurement_ai.api.main:app --host 0.0.0.0 --port 8000 --reload
+    profiles:
+      - full  # Start with: docker-compose --profile full up
 
   # pgAdmin for database management (optional)
   pgadmin:

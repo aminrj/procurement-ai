@@ -5,6 +5,7 @@ Main API server for Procurement AI
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 import time
 
 from procurement_ai import __version__
@@ -62,7 +63,7 @@ def health_check():
     try:
         db = get_db()
         with db.get_session() as session:
-            session.execute("SELECT 1")
+            session.execute(text("SELECT 1"))
         db_status = "healthy"
     except Exception as e:
         db_status = f"unhealthy: {str(e)[:50]}"
