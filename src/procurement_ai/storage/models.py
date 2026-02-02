@@ -53,6 +53,8 @@ class TenderStatus(str, enum.Enum):
     """Processing status of a tender"""
     PENDING = "pending"
     PROCESSING = "processing"
+    ANALYZED = "analyzed"
+    REJECTED = "rejected"
     FILTERED_OUT = "filtered_out"
     RATED_LOW = "rated_low"
     COMPLETE = "complete"
@@ -98,6 +100,17 @@ class Organization(Base):
     # Relationships
     users = relationship("User", back_populates="organization", cascade="all, delete-orphan")
     tenders = relationship("TenderDB", back_populates="organization", cascade="all, delete-orphan")
+    
+    @property
+    def analyses_this_month(self) -> int:
+        """Alias for monthly_analysis_count"""
+        return self.monthly_analysis_count
+    
+    def can_analyze(self) -> bool:
+        """Check if organization can analyze more tenders this month"""
+        if not self.is_active or self.is_deleted:
+            return False
+        return self.monthly_analysis_count < self.monthly_analysis_limit
     
     def __repr__(self):
         return f"<Organization(id={self.id}, name='{self.name}', tier={self.subscription_tier.value})>"

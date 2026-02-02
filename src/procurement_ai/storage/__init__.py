@@ -1,6 +1,10 @@
 """Database and persistence layer"""
 
 from .database import get_db, init_db, Database
+
+# Alias for consistency
+DatabaseManager = Database
+
 from .models import (
     Organization,
     User,
@@ -13,11 +17,15 @@ from .repositories import (
     UserRepository,
     TenderRepository,
     AnalysisRepository,
+    BidDocumentRepository,
 )
 
 __all__ = [
     # Database
     "get_db",
+    "init_db",
+    "Database",
+    "DatabaseManager",
     "init_db",
     "Database",
     # Models

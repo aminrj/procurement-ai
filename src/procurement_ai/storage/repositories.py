@@ -391,6 +391,10 @@ class AnalysisRepository(BaseRepository):
             .first()
         )
     
+    def get_latest_by_tender(self, tender_id: int) -> Optional[AnalysisResult]:
+        """Alias for get_by_tender_id (for API compatibility)"""
+        return self.get_by_tender_id(tender_id)
+    
     def update_rating(
         self,
         tender_id: int,
@@ -476,6 +480,10 @@ class BidDocumentRepository(BaseRepository):
             .filter(BidDocument.tender_id == tender_id)
             .first()
         )
+    
+    def get_latest_by_tender(self, tender_id: int) -> Optional[BidDocument]:
+        """Alias for get_by_tender_id (for API compatibility)"""
+        return self.get_by_tender_id(tender_id)
     
     def list_by_organization(
         self,

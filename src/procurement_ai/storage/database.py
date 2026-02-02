@@ -81,6 +81,29 @@ class Database:
             bind=self.engine,
         )
     
+    @classmethod
+    def from_config(cls, config=None) -> "Database":
+        """
+        Create database from config object
+        
+        Args:
+            config: Config object with DATABASE_URL (optional)
+        
+        Returns:
+            Database instance
+        """
+        from procurement_ai.config import Config
+        
+        if config is None:
+            config = Config()
+        
+        database_url = getattr(config, "DATABASE_URL", None) or os.getenv(
+            "DATABASE_URL",
+            "postgresql://postgres:postgres@127.0.0.1:5432/procurement_ai?gssencmode=disable"
+        )
+        
+        return cls(database_url=database_url)
+    
     def create_all(self):
         """Create all tables (use for development/testing, not production)"""
         Base.metadata.create_all(bind=self.engine)
