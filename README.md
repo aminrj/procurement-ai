@@ -70,9 +70,9 @@ python examples/quickstart.py
 
 **Expected output:**
 ```
-Filtered tender: Relevant
-Rating: 8.5/10 (High confidence)
-Generated bid document with 3 sections
+✓ Filtered tender: Relevant
+✓ Rating: 8.5/10 (High confidence)
+✓ Generated bid document with 3 sections
 ```
 
 **Next Steps:**

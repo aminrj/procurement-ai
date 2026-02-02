@@ -45,6 +45,7 @@ outputs/
 results/
 cache/
 tmp/
+docs/tmp-docs
 
 # =========================
 # Jupyter notebooks
