@@ -230,6 +230,43 @@ config = Config(
 
 ---
 
+## Testing
+
+### Quick Test Suite (Fast)
+
+```bash
+# Run unit + integration tests (excludes E2E)
+pytest
+
+# With coverage
+pytest --cov=procurement_ai --cov-report=html
+
+# Fast tests only
+pytest -m "not slow"
+```
+
+**Current**: 60 tests pass in 0.70s ✓
+
+### End-to-End Tests (Requires LLM)
+
+Full workflow validation with real LLM:
+
+```bash
+# Prerequisites:
+# 1. Start: docker-compose up -d db && ./scripts/setup_api_test.sh
+# 2. Start: LM Studio on http://localhost:1234
+# 3. Start: uvicorn procurement_ai.api.main:app --reload
+
+# Run E2E tests (~90s)
+pytest tests/e2e/ -v -s -m e2e
+```
+
+**Validates**: Complete tender submission → LLM processing → results retrieval
+
+See [tests/e2e/README.md](tests/e2e/README.md) for setup details.
+
+---
+
 ## Roadmap
 
 **Current (v0.1):**

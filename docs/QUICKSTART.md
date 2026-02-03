@@ -20,7 +20,7 @@ docker-compose ps postgres
 
 ```bash
 # Run setup script (creates tables + test organization)
-./setup_api_test.sh
+./scripts/setup_api_test.sh
 ```
 
 This creates:
@@ -46,7 +46,7 @@ The API will be available at: **http://localhost:8000**
 ### Option A: Run Test Script
 
 ```bash
-./test_api.sh
+./scripts/test_api.sh
 ```
 
 ### Option B: Interactive Documentation

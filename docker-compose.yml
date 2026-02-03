@@ -42,7 +42,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api
+      dockerfile: deployment/Dockerfile.api
     container_name: procurement-ai-api
     environment:
       DATABASE_URL: postgresql://procurement:procurement@postgres:5432/procurement
