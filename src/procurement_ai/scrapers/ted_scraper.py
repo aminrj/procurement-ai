@@ -7,9 +7,12 @@ TED is the official EU portal for publishing public procurement notices.
 API Documentation: https://docs.ted.europa.eu/api/latest/search.html
 """
 import httpx
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_not_exception_type
+from bs4 import BeautifulSoup
+import re
 
 from procurement_ai.scrapers.exceptions import APIError, RateLimitError, ParseError
 
@@ -175,27 +178,142 @@ class TEDScraper:
             return f"https://ted.europa.eu/udl?uri=TED:NOTICE:{notice_id}"
         return None
     
-    def get_tender_details(self, notice_id: str) -> Optional[str]:
+    def get_tender_details(self, notice_id: str) -> Optional[Dict]:
         """
-        Get full tender details including description.
-        Downloads XML and extracts title/description for LLM analysis.
+        Fetch full tender details from HTML page - simple scraping approach.
         
         Args:
-            notice_id: Notice ID from search results
+            notice_id: Notice ID from search results (e.g., "76154-2026")
             
         Returns:
-            String with tender details or None if failed
+            Dictionary with title, description, organization, deadline, value
+            or None if failed
         """
         try:
-            xml_url = f"https://ted.europa.eu/en/notice/{notice_id}/xml"
-            response = self.client.get(xml_url)
+            # Fetch HTML page
+            html_url = f"https://ted.europa.eu/en/notice/{notice_id}/html"
+            response = self.client.get(html_url, follow_redirects=True)
             
-            if response.status_code == 200:
-                # For MVP, return the URL - full XML parsing can be added later
-                return f"Full tender details available at: {xml_url}"
+            if response.status_code != 200:
+                return None
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extract title from page title tag
+            title = "Untitled Tender"
+            title_tag = soup.find('title')
+            if title_tag:
+                title = title_tag.get_text(strip=True)
+            
+            # Extract description from main content
+            description = title  # Default to title
+            notice_div = soup.find('div', id='notice') or soup.find('div', id='summary')
+            if notice_div:
+                text = notice_div.get_text(separator=' ', strip=True)
+                if len(text) > 100:  # Has meaningful content
+                    description = text[:1000]  # First 1000 chars
+            
+            # Try to find organization name
+            organization = "Unknown Buyer"
+            text_content = response.text
+            org_patterns = [
+                r'(?:Buyer|Organization|Authority|Contracting body)[:]\s*([^\n]{3,100})',
+                r'Name[:]\s*([^\n]{3,100})',
+            ]
+            for pattern in org_patterns:
+                match = re.search(pattern, text_content, re.IGNORECASE)
+                if match:
+                    org = match.group(1).strip()
+                    if len(org) > 3:
+                        organization = org[:255]
+                        break
+            
+            return {
+                'title': title[:500],
+                'description': description,
+                'organization': organization,
+                'deadline': None,
+                'estimated_value': None
+            }
+            
+        except Exception as e:
             return None
-        except Exception:
-            return None
+    
+    def _parse_tender_xml(self, xml_content: str, notice_id: str) -> Dict:
+        """
+        Parse TED XML to extract title, description, buyer, value.
+        
+        TED XML is complex with multiple namespaces. We try to extract
+        the most common fields.
+        """
+        try:
+            root = ET.fromstring(xml_content)
+            
+            # Remove namespace prefixes for easier searching
+            for elem in root.iter():
+                if '}' in elem.tag:
+                    elem.tag = elem.tag.split('}', 1)[1]
+            
+            details = {
+                'title': None,
+                'description': None,
+                'buyer_name': None,
+                'estimated_value': None,
+                'deadline': None
+            }
+            
+            # Try to find title (multiple possible locations)
+            title_paths = [
+                './/TITLE',
+                './/SHORT_DESCR',
+                './/ML_TITLES/ML_TI_DOC',
+            ]
+            for path in title_paths:
+                elem = root.find(path)
+                if elem is not None and elem.text:
+                    details['title'] = elem.text.strip()[:500]
+                    break
+            
+            # Try to find description
+            desc_paths = [
+                './/OBJECT_DESCR',
+                './/SHORT_DESCR',
+                './/P[@TYPE="DESCRIPTION"]',
+            ]
+            for path in desc_paths:
+                elem = root.find(path)
+                if elem is not None and elem.text:
+                    details['description'] = elem.text.strip()[:2000]
+                    break
+            
+            # Try to find buyer/contracting authority
+            buyer_paths = [
+                './/OFFICIALNAME',
+                './/ORGANISATION/OFFICIALNAME',
+                './/ADDRESS_CONTRACTING_BODY/OFFICIALNAME',
+            ]
+            for path in buyer_paths:
+                elem = root.find(path)
+                if elem is not None and elem.text:
+                    details['buyer_name'] = elem.text.strip()[:255]
+                    break
+            
+            # Try to find estimated value
+            value_elem = root.find('.//VAL_ESTIMATED_TOTAL')
+            if value_elem is not None and value_elem.text:
+                currency = value_elem.get('CURRENCY', '€')
+                details['estimated_value'] = f"{currency} {value_elem.text}"
+            
+            # Try to find deadline
+            deadline_elem = root.find('.//DATE_RECEIPT_TENDERS')
+            if deadline_elem is not None and deadline_elem.text:
+                details['deadline'] = deadline_elem.text.strip()
+            
+            return details
+            
+        except Exception as e:
+            # Return empty dict if parsing fails
+            return {}
     
     def close(self):
         """Close HTTP client connection."""

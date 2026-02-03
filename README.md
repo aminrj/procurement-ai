@@ -156,35 +156,33 @@ print(f"Rating: {result.rating}/10")
 
 ### Web Scraping
 
-Fetch real tenders from TED Europa (EU procurement portal):
+Fetch real tenders from TED Europa and save to database:
+
+```bash
+# Fetch tenders and save to database
+python scripts/fetch_and_store.py
+
+# View what's in the database
+python scripts/view_database.py
+```
+
+Or use the scraper programmatically:
 
 ```python
 from procurement_ai.scrapers import TEDScraper
 
-# Search for IT tenders from last 7 days
+# Fetch recent tenders
 with TEDScraper() as scraper:
-    tenders = scraper.search_tenders(
-        days_back=7,
-        cpv_codes=TEDScraper.IT_CPV_CODES,
-        limit=20
-    )
+    tenders = scraper.search_tenders(days_back=7, limit=50)
     
     for tender in tenders:
-        print(f"{tender['title']} - €{tender['estimated_value']:,.0f}")
+        print(f"{tender['external_id']} - {tender.get('country')}")
 ```
-
-Or run the example script:
-
-```bash
-python examples/scrape_tenders.py
-```
-
-See [docs/SCRAPER_IMPLEMENTATION.md](docs/SCRAPER_IMPLEMENTATION.md) for complete guide.
 
 **More Examples:**
 
 - [quickstart.py](examples/quickstart.py) - 5-minute demo
-- [scrape_tenders.py](examples/scrape_tenders.py) - Fetch real tenders from TED Europa
+- [scrape_tenders.py](examples/scrape_tenders.py) - Fetch tenders with details
 - [batch_processing.py](examples/batch_processing.py) - Process multiple tenders
 - [sample_data.py](examples/sample_data.py) - Test data generator
 
