@@ -101,11 +101,13 @@ def read_root():
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Catch-all exception handler"""
+    # TODO: Add proper logging here
+    # logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
-            "detail": "Internal server error",
-            "error": str(exc),
+            "detail": "Internal server error. Please contact support.",
             "path": str(request.url),
         },
     )

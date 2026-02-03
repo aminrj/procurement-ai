@@ -2,7 +2,7 @@
 Dependency injection for FastAPI
 Provides database sessions, config, and services
 """
-from typing import Generator
+from functools import lru_cache
 from fastapi import Depends, HTTPException, Header, status
 from sqlalchemy.orm import Session
 
@@ -12,34 +12,23 @@ from procurement_ai.storage.repositories import OrganizationRepository
 from procurement_ai.services.llm import LLMService
 
 
-# Singleton instances
-_db: DatabaseManager = None
-_config: Config = None
-_llm_service: LLMService = None
-
-
+@lru_cache()
 def get_db() -> DatabaseManager:
-    """Get database manager singleton"""
-    global _db
-    if _db is None:
-        _db = DatabaseManager.from_config()
-    return _db
+    """Get database manager (cached)"""
+    return DatabaseManager.from_config()
 
 
+@lru_cache()
 def get_config() -> Config:
-    """Get config singleton"""
-    global _config
-    if _config is None:
-        _config = Config()
-    return _config
+    """Get config (cached)"""
+    return Config()
 
 
-def get_llm_service(config: Config = Depends(get_config)) -> LLMService:
-    """Get LLM service singleton"""
-    global _llm_service
-    if _llm_service is None:
-        _llm_service = LLMService(config)
-    return _llm_service
+@lru_cache()
+def get_llm_service() -> LLMService:
+    """Get LLM service (cached)"""
+    config = get_config()
+    return LLMService(config)
 
 
 def get_db_session(db: DatabaseManager = Depends(get_db)):

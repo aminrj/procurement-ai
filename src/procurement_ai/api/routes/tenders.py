@@ -19,13 +19,16 @@ from procurement_ai.api.dependencies import (
     get_db_session,
     get_config,
     get_llm_service,
+    get_db,
 )
 from procurement_ai.storage.models import Organization, TenderStatus
 from procurement_ai.storage.repositories import (
     TenderRepository,
     AnalysisRepository,
     BidDocumentRepository,
+    OrganizationRepository,
 )
+from procurement_ai.storage import DatabaseManager
 from procurement_ai.models import Tender
 from procurement_ai.orchestration.simple_chain import ProcurementOrchestrator
 from procurement_ai.config import Config
@@ -35,17 +38,14 @@ router = APIRouter(prefix="/api/v1", tags=["tenders"])
 
 
 async def process_tender_background(
-    tender_id: str,
+    tender_id: int,
     tender_data: Tender,
-    organization_id: str,
+    organization_id: int,
+    db: DatabaseManager,
     config: Config,
     llm_service: LLMService,
 ):
     """Background task to process tender with AI"""
-    from procurement_ai.storage import DatabaseManager
-
-    db = DatabaseManager.from_config()
-
     try:
         # Run orchestrator
         orchestrator = ProcurementOrchestrator(config=config, llm_service=llm_service)
@@ -94,10 +94,13 @@ async def process_tender_background(
                 )
 
     except Exception as e:
-        # Update tender status to ERROR
+        # Log error and update status
+        error_msg = str(e)[:500]  # Limit error message length
         with db.get_session() as session:
             tender_repo = TenderRepository(session)
             tender_repo.update_status(tender_id, TenderStatus.ERROR)
+            # Store error for debugging (if update method supports it)
+            # tender_repo.update(tender_id, error_message=error_msg)
 
 
 @router.post("/analyze", response_model=AnalysisResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -116,14 +119,15 @@ async def analyze_tender(
     Returns immediately with status "processing".
     Use GET /tenders/{id} to check results.
     """
-    tender_repo = TenderRepository(session)
-
     # Check if organization can analyze more tenders
     if not organization.can_analyze():
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Monthly analysis limit reached ({organization.analyses_this_month}/{organization.monthly_analysis_limit})",
         )
+
+    tender_repo = TenderRepository(session)
+    org_repo = OrganizationRepository(session)
 
     # Create tender in database
     tender_db = tender_repo.create(
@@ -137,13 +141,8 @@ async def analyze_tender(
         source=request.source,
     )
 
-    # Increment analysis count
-    from procurement_ai.storage.repositories import OrganizationRepository
-
-    org_repo = OrganizationRepository(session)
+    # Update usage count and mark as processing
     org_repo.update_usage(organization.id)
-
-    # Mark as processing
     tender_repo.update_status(tender_db.id, TenderStatus.PROCESSING)
 
     # Convert to Tender model for orchestrator
@@ -157,11 +156,13 @@ async def analyze_tender(
     )
 
     # Start background processing
+    db = Depends(get_db)
     background_tasks.add_task(
         process_tender_background,
         tender_db.id,
         tender_data,
         organization.id,
+        get_db(),  # Pass database instance
         config,
         llm_service,
     )
@@ -265,7 +266,7 @@ def get_tender_analysis(
                 overall_score=analysis.overall_score,
                 strategic_fit=analysis.strategic_fit or 0.0,
                 win_probability=analysis.win_probability or 0.0,
-                effort_required=0.0,  # Not in old schema
+                effort_required=0.0,  # MVP: Hardcoded, can be calculated later
                 strengths=analysis.strengths or [],
                 risks=analysis.risks or [],
                 recommendation=analysis.recommendation or "",
@@ -273,11 +274,13 @@ def get_tender_analysis(
 
     # Add bid document if available
     if bid_doc:
+        # Note: Field mapping due to schema evolution
+        # Old DB: capabilities, approach → API: technical_approach, timeline_estimate
         response.bid_document = BidDocumentResponse(
             executive_summary=bid_doc.executive_summary,
-            technical_approach=bid_doc.capabilities,  # Map from old schema
+            technical_approach=bid_doc.capabilities,
             value_proposition=bid_doc.value_proposition,
-            timeline_estimate=bid_doc.approach,  # Map from old schema
+            timeline_estimate=bid_doc.approach,
         )
 
     return response
