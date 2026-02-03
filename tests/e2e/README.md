@@ -23,11 +23,13 @@ pytest tests/e2e/ -v -s
 ### Local LLM
 
 **LM Studio (Recommended):**
+
 - Download from [lmstudio.ai](https://lmstudio.ai/)
 - Download model: `mistral-7b-instruct` or similar
 - Start server on `http://localhost:1234`
 
 **Ollama (Alternative):**
+
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull mistral

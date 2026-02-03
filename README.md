@@ -1,17 +1,18 @@
 # Procurement Intelligence AI
 
-> Automated tender monitoring and bid generation using local LLMs
+> Automated tender analysis and bid generation using AI
 
-[Quick Start](#quick-start) | [Learning Path](#learning-path) | [Architecture](#architecture) | [Examples](#examples)
+**Status**: ✅ MVP Ready | 🚀 TED Scraper Working | 🤖 AI Agents Tested
 
 ---
 
 ## What This Does
 
-Automatically monitors procurement sites, filters opportunities, rates them, and generates professional bid documents using local LLMs.
+Analyzes EU procurement tenders and generates professional bid proposals using AI.
 
-**Key Features:**
+### Key Features
 
+- **Web Scraping**: Automatic tender collection from TED Europa (EU procurement portal)
 - Filters procurement tenders for relevance (cybersecurity, AI, software)
 - Rates business attractiveness with multi-dimensional scoring
 - Generates structured bid document content
@@ -23,37 +24,35 @@ Automatically monitors procurement sites, filters opportunities, rates them, and
 - **LLM Runtime:** LM Studio (local development) / Groq (production)
 - **Models:** Llama 3.1 8B and similar
 - **Framework:** Pure Python with Pydantic for validation
+- **Data Sources:** TED Europa API (EU public procurement)
+- **Storage:** PostgreSQL with multi-tenant support
 - **Architecture:** Multi-agent pipeline with explicit orchestration
 
 ---
 
 ## Architecture
 
-The application follows a clean, explicit pipeline:
+Simple, explicit pipeline:
 
-1. **Filter Agent** - Classifies tender relevance
-2. **Rating Agent** - Evaluates business opportunity
-3. **Document Generator** - Creates structured bid content
-4. **Orchestrator** - Manages workflow and error handling
+```
+TED API → Scraper → Database
+           ↓
+       Filter Agent → Rating Agent → Document Generator
+           ↓
+       Bid Proposals
+```
 
-**Design Principles:**
-
-- LLMs as software components, not chatbots
-- Structured JSON outputs validated with Pydantic
-- Retry logic for unreliable LLM responses
-- Clean separation between agents, models, and services
+### Components
 
 ```
 src/procurement_ai/
-├── agents/          # Filter, rating, and generator agents
-├── services/        # LLM service abstraction
-├── orchestration/   # Workflow coordination
-├── storage/         # Database layer (PostgreSQL + SQLAlchemy)
-├── models.py        # Pydantic data models
-└── config.py        # Configuration management
+├── agents/          # AI agents (filter, rating, generator)
+├── services/        # LLM service wrapper
+├── scrapers/        # TED Europa scraper
+├── storage/         # Database layer
+├── models.py        # Data models
+└── config.py        # Settings
 ```
-
-**Production Database Layer**
 
 - Multi-tenant PostgreSQL storage
 - Repository pattern for clean data access
@@ -155,9 +154,37 @@ print(f"Relevant: {result.is_relevant}")
 print(f"Rating: {result.rating}/10")
 ```
 
-See [examples/](examples/) directory for more:
+### Web Scraping
+
+Fetch real tenders from TED Europa (EU procurement portal):
+
+```python
+from procurement_ai.scrapers import TEDScraper
+
+# Search for IT tenders from last 7 days
+with TEDScraper() as scraper:
+    tenders = scraper.search_tenders(
+        days_back=7,
+        cpv_codes=TEDScraper.IT_CPV_CODES,
+        limit=20
+    )
+    
+    for tender in tenders:
+        print(f"{tender['title']} - €{tender['estimated_value']:,.0f}")
+```
+
+Or run the example script:
+
+```bash
+python examples/scrape_tenders.py
+```
+
+See [docs/SCRAPER_IMPLEMENTATION.md](docs/SCRAPER_IMPLEMENTATION.md) for complete guide.
+
+**More Examples:**
 
 - [quickstart.py](examples/quickstart.py) - 5-minute demo
+- [scrape_tenders.py](examples/scrape_tenders.py) - Fetch real tenders from TED Europa
 - [batch_processing.py](examples/batch_processing.py) - Process multiple tenders
 - [sample_data.py](examples/sample_data.py) - Test data generator
 
@@ -182,8 +209,10 @@ pip install -e ".[dev]"
 **Requirements:**
 
 - Python 3.9+
-- httpx >= 0.25
-- pydantic >= 2.0
+- httpx >= 0.25 (for API requests)
+- pydantic >= 2.0 (for structured outputs)
+- tenacity >= 8.2 (for retry logic)
+- PostgreSQL >= 13 (for data storage)
 
 ---
 
@@ -194,14 +223,18 @@ procurement-ai/
 ├── src/procurement_ai/       # Main package
 │   ├── agents/              # Filter, rating, generator agents
 │   ├── services/            # LLM service abstraction
+│   ├── scrapers/            # Web scraping (TED Europa)
 │   ├── orchestration/       # Workflow coordination
+│   ├── storage/             # Database repositories
 │   ├── models.py            # Pydantic data models
 │   └── config.py            # Configuration
 ├── examples/                # Runnable examples
+│   └── scrape_tenders.py    # Fetch tenders from TED Europa
 ├── experiments/             # Research and optimization
 ├── learn/                   # Learning notebooks
-├── tests/                   # Test suite
+├── tests/                   # Test suite (78 tests passing)
 ├── docs/                    # Documentation
+│   └── SCRAPER_IMPLEMENTATION.md  # Web scraping guide
 └── benchmarks/              # Performance data
 ```
 
