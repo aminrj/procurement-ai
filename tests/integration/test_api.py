@@ -240,10 +240,7 @@ class TestRootEndpoint:
     """Test root endpoint"""
 
     def test_root(self, client):
-        """Test root endpoint returns API info"""
-        response = client.get("/")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "version" in data
-        assert "docs" in data
+        """Test root endpoint redirects to web UI"""
+        response = client.get("/", follow_redirects=False)
+        assert response.status_code in [307, 302, 303]
+        assert "/web/" in response.headers["location"]

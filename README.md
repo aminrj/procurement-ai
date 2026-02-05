@@ -1,339 +1,212 @@
-# Procurement Intelligence AI
+# Procurement AI
 
-> Automated tender analysis and bid generation using AI
+**LLM-powered tender analysis with multi-agent orchestration**
 
-**Status**: ✅ MVP Ready | 🚀 TED Scraper Working | 🤖 AI Agents Tested
-
----
-
-## What This Does
-
-Analyzes EU procurement tenders and generates professional bid proposals using AI.
-
-### Key Features
-
-- **Web Scraping**: Automatic tender collection from TED Europa (EU procurement portal)
-- Filters procurement tenders for relevance (cybersecurity, AI, software)
-- Rates business attractiveness with multi-dimensional scoring
-- Generates structured bid document content
-- Enforces reliable structured outputs using Pydantic
-- Works with local LLMs (LM Studio) and cloud APIs (Groq)
-
-**Tech Stack:**
-
-- **LLM Runtime:** LM Studio (local development) / Groq (production)
-- **Models:** Llama 3.1 8B and similar
-- **Framework:** Pure Python with Pydantic for validation
-- **Data Sources:** TED Europa API (EU public procurement)
-- **Storage:** PostgreSQL with multi-tenant support
-- **Architecture:** Multi-agent pipeline with explicit orchestration
-
----
-
-## Architecture
-
-Simple, explicit pipeline:
-
-```
-TED API → Scraper → Database
-           ↓
-       Filter Agent → Rating Agent → Document Generator
-           ↓
-       Bid Proposals
-```
-
-### Components
-
-```
-src/procurement_ai/
-├── agents/          # AI agents (filter, rating, generator)
-├── services/        # LLM service wrapper
-├── scrapers/        # TED Europa scraper
-├── storage/         # Database layer
-├── models.py        # Data models
-└── config.py        # Settings
-```
-
-- Multi-tenant PostgreSQL storage
-- Repository pattern for clean data access
-- Alembic migrations for schema evolution
-- Docker Compose for local development
-- Ready for containerized deployment
-
-See [docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md) for complete setup guide.
+🎯 **Focus**: Improve LLM prompts → Test with real data → Visualize results
 
 ---
 
 ## Quick Start
 
-**Prerequisites:**
-
-- Python 3.9+
-- Docker and Docker Compose
-- LM Studio running locally (or Groq API key)
-
-**Setup (5 minutes):**
-
 ```bash
-# Clone and install
-git clone https://github.com/yourusername/procurement-ai.git
-cd procurement-ai
-pip install -r requirements.txt
-pip install -e .
+# Test LLM analysis
+python procurement_mvp.py
 
-# Start database
-docker-compose up -d postgres
-
-# Run migrations and seed data
-alembic upgrade head
-python examples/seed_database.py
-
-# Test it works
-python examples/database_usage.py
+# (Optional) Start web UI for visualization
+./scripts/start_web.sh
+open http://localhost:8000
 ```
-
-**Expected output:**
-
-```
-✓ Filtered tender: Relevant
-✓ Rating: 8.5/10 (High confidence)
-✓ Generated bid document with 3 sections
-```
-
-**Next Steps:**
-
-- [Follow the learning path](docs/LEARNING_PATH.md) to understand how it works
-- [Run batch processing example](examples/batch_processing.py) for multiple tenders
-- [Explore experiments](experiments/) to see prompt engineering iterations
 
 ---
 
-## Learning Path
+## What This Is
 
-This project is designed as a learning artifact following the fast.ai philosophy: learn by building real things.
+LLM experimentation platform for procurement analysis:
+- **3 AI agents** - Filter, Rating, Generator (the core value)
+- **Web UI** - Visualize LLM outputs, test prompts
+- **Database** - Persist results, compare iterations
 
-**Progressive Learning:**
-
-| Resource                                                   | Type          | Focus                              |
-| ---------------------------------------------------------- | ------------- | ---------------------------------- |
-| [Hello LLM](learn/01_hello_llm.ipynb)                      | Notebook      | First API call, structured outputs |
-| [Learning Path Guide](docs/LEARNING_PATH.md)               | Documentation | Complete curriculum outline        |
-| [Prompt Variations](experiments/01_prompt_varations.py)    | Experiment    | Prompt engineering iterations      |
-| [Temperature Impact](experiments/02_temperature_impact.py) | Experiment    | Parameter optimization             |
-
-**Key Learnings:**
-
-- How to structure LLM outputs with Pydantic
-- Prompt engineering for classification and generation tasks
-- Multi-agent orchestration patterns
-- Retry strategies for production reliability
-- Local vs cloud LLM tradeoffs
+**Not a SaaS app** - it's an AI research tool with supporting infrastructure.
 
 ---
 
-## Examples
+## Core: LLM Agents
 
-### Quickstart Demo
+**1. Filter Agent** ([filter.py](src/procurement_ai/agents/filter.py))
+- Binary classification: relevant or not?
+- Temperature: 0.1 (precise)
+- Output: relevance + confidence + categories + reasoning
 
-```python
-from procurement_ai import ProcurementOrchestrator
-from procurement_ai.models import Tender
+**2. Rating Agent** ([rating.py](src/procurement_ai/agents/rating.py))
+- Multi-dimensional scoring (6 dimensions)
+- Temperature: 0.3 (balanced)
+- Output: strategic fit, win probability, complexity, risk, urgency, effort
 
-orchestrator = ProcurementOrchestrator()
-tender = Tender(
-    id="DEMO-001",
-    title="AI-Powered Threat Detection System",
-    description="Government agency seeks vendor for cybersecurity platform...",
-    organization="National Cybersecurity Agency",
-    value=2500000.0,
-    deadline="2024-12-31"
-)
+**3. Generator Agent** ([generator.py](src/procurement_ai/agents/generator.py))
+- Professional bid document creation
+- Temperature: 0.5 (creative)
+- Output: structured proposal with intro, solution, differentiators
 
-result = await orchestrator.process_tender(tender)
-print(f"Relevant: {result.is_relevant}")
-print(f"Rating: {result.rating}/10")
-```
-
-### Web Scraping
-
-Fetch real tenders from TED Europa and save to database:
-
-```bash
-# Fetch tenders and save to database
-python scripts/fetch_and_store.py
-
-# View what's in the database
-python scripts/view_database.py
-```
-
-Or use the scraper programmatically:
-
-```python
-from procurement_ai.scrapers import TEDScraper
-
-# Fetch recent tenders
-with TEDScraper() as scraper:
-    tenders = scraper.search_tenders(days_back=7, limit=50)
-    
-    for tender in tenders:
-        print(f"{tender['external_id']} - {tender.get('country')}")
-```
-
-**More Examples:**
-
-- [quickstart.py](examples/quickstart.py) - 5-minute demo
-- [scrape_tenders.py](examples/scrape_tenders.py) - Fetch tenders with details
-- [batch_processing.py](examples/batch_processing.py) - Process multiple tenders
-- [sample_data.py](examples/sample_data.py) - Test data generator
-
----
-
-## Installation
-
-**As a library:**
-
-```bash
-pip install git+https://github.com/yourusername/procurement-ai.git
-```
-
-**For development:**
-
-```bash
-git clone https://github.com/yourusername/procurement-ai.git
-cd procurement-ai
-pip install -e ".[dev]"
-```
-
-**Requirements:**
-
-- Python 3.9+
-- httpx >= 0.25 (for API requests)
-- pydantic >= 2.0 (for structured outputs)
-- tenacity >= 8.2 (for retry logic)
-- PostgreSQL >= 13 (for data storage)
+**Orchestrator** ([simple_chain.py](src/procurement_ai/orchestration/simple_chain.py))
+- Sequential pipeline with early stopping
+- Low-rated tenders skip document generation
 
 ---
 
 ## Project Structure
 
+**Core (LLM work):**
 ```
-procurement-ai/
-├── src/procurement_ai/       # Main package
-│   ├── agents/              # Filter, rating, generator agents
-│   ├── services/            # LLM service abstraction
-│   ├── scrapers/            # Web scraping (TED Europa)
-│   ├── orchestration/       # Workflow coordination
-│   ├── storage/             # Database repositories
-│   ├── models.py            # Pydantic data models
-│   └── config.py            # Configuration
-├── examples/                # Runnable examples
-│   └── scrape_tenders.py    # Fetch tenders from TED Europa
-├── experiments/             # Research and optimization
-├── learn/                   # Learning notebooks
-├── tests/                   # Test suite (78 tests passing)
-├── docs/                    # Documentation
-│   └── SCRAPER_IMPLEMENTATION.md  # Web scraping guide
-└── benchmarks/              # Performance data
+src/procurement_ai/
+├── agents/          # 🎯 Edit prompts here
+│   ├── filter.py
+│   ├── rating.py
+│   └── generator.py
+├── orchestration/   # Pipeline logic
+└── services/llm.py  # LLM abstraction
+```
+
+**Supporting:**
+```
+├── api/       # Web UI (HTMX + Tailwind)
+├── storage/   # Database (PostgreSQL)
+└── scrapers/  # Data collection
 ```
 
 ---
 
-## Configuration
+## Installation
 
-Configure via environment variables or `config.py`:
+```bash
+# 1. Install
+pip install -r requirements.txt
+pip install -e .
 
+# 2. Configure LLM
+# Option A: LM Studio (local)
+# - Start LM Studio on port 1234
+
+# Option B: Groq (cloud)
+export GROQ_API_KEY="your-key"
+export USE_GROQ=true
+
+# 3. Test immediately
+python procurement_mvp.py
+```
+
+**Optional:** Database + Web UI
+
+```bash
+# Start PostgreSQL
+docker-compose up -d postgres
+alembic upgrade head
+
+# Fetch sample data
+python scripts/fetch_and_store.py
+
+# Start web UI
+./scripts/start_web.sh
+```
+
+---
+
+## Usage
+
+**Direct Python (fastest iteration):**
 ```python
-from procurement_ai import Config
+from procurement_ai.orchestration.simple_chain import ProcurementOrchestrator
+from procurement_ai.models import Tender
 
-config = Config(
-    llm_base_url="http://localhost:1234/v1",
-    llm_model="llama-3.1-8b-instruct",
-    max_retries=3,
-    timeout=30.0
+orchestrator = ProcurementOrchestrator()
+tender = Tender(
+    id="test",
+    title="AI Cybersecurity Platform",
+    description="Advanced threat detection...",
+    organization="Government Agency"
 )
+
+result = await orchestrator.process_tender(tender)
+print(f"Relevant: {result.filter_result.is_relevant}")
+print(f"Score: {result.rating_result.overall_score}/10")
 ```
 
-**Environment variables:**
+**Web UI (best for visualization):**
+- View all tenders: http://localhost:8000
+- Click "Analyze with AI" to test agents
+- Compare results across iterations
 
-- `LLM_BASE_URL` - LLM API endpoint (default: <http://localhost:1234/v1>)
-- `LLM_MODEL` - Model name (default: llama-3.1-8b-instruct)
-- `LLM_API_KEY` - API key for cloud providers
+**REST API:**
+```bash
+curl -X POST http://localhost:8000/api/v1/tenders/analyze \\
+  -H "Content-Type: application/json" \\
+  -d '{"title": "AI Security", "description": "..."}'
+```
 
 ---
 
-## Testing
+## Improving the LLM
 
-### Quick Test Suite (Fast)
+**Workflow:**
+1. Edit prompts in `src/procurement_ai/agents/*.py`
+2. Test: `python procurement_mvp.py` or web UI
+3. Compare results
+4. Iterate
+
+**What to improve:**
+- Filter: Better category detection, few-shot examples
+- Rating: Scoring calibration, weighting adjustments
+- Generator: More persuasive language, better structure
+
+**Experiments:**
+- `experiments/01_prompt_variations.py` - Test different prompts
+- `experiments/02_temperature_impact.py` - Find optimal temperature
+
+---
+
+## Tech Stack
+
+**Core:**
+- Python 3.9+ with async/await
+- LM Studio (local) or Groq (cloud)
+- Pydantic for structured outputs
+
+**Supporting:**
+- FastAPI + HTMX (web UI)
+- PostgreSQL + SQLAlchemy (data)
+- TED Europa scraper (source)
+
+---
+
+## Tests
 
 ```bash
-# Run unit + integration tests (excludes E2E)
-pytest
+# Run core agent tests
+pytest tests/unit/test_agents.py -v
 
-# With coverage
-pytest --cov=procurement_ai --cov-report=html
+# Run all tests
+pytest tests/ -v
 
-# Fast tests only
-pytest -m "not slow"
+# Skip slow integration tests
+pytest tests/unit/ -v
 ```
 
-**Current**: 60 tests pass in 0.70s ✓
-
-### End-to-End Tests (Requires LLM)
-
-Full workflow validation with real LLM:
-
-```bash
-# Prerequisites:
-# 1. Start: docker-compose up -d db && ./scripts/setup_api_test.sh
-# 2. Start: LM Studio on http://localhost:1234
-# 3. Start: uvicorn procurement_ai.api.main:app --reload
-
-# Run E2E tests (~90s)
-pytest tests/e2e/ -v -s -m e2e
-```
-
-**Validates**: Complete tender submission → LLM processing → results retrieval
-
-See [tests/e2e/README.md](tests/e2e/README.md) for setup details.
+**Test Coverage:**
+- ✅ All 3 agents (filter, rating, generator)
+- ✅ Orchestration pipeline
+- ✅ LLM service abstraction
+- ✅ Database repositories
+- ❌ TED scraper (14 tests failing - not core to LLM work)
 
 ---
 
-## Roadmap
+## Documentation
 
-**Current (v0.1):**
-
-- Multi-agent pipeline
-- LM Studio support
-- Structured outputs with Pydantic
-- Basic orchestration
-
-**Planned (v0.2+):**
-
-- Cloud LLM support (Groq, OpenAI)
-- Web scraping for real tender data
-- Streamlit UI
-- Benchmarking suite
-- Multi-language support
-
----
-
-## Contributing
-
-This is a learning project, but contributions are welcome:
-
-- Bug reports and fixes
-- Documentation improvements
-- New examples or experiments
-- Performance optimizations
+- [Web UI Guide](docs/WEB_UI_GUIDE.md) - Using the visualization interface
+- [Code Review](CODE_REVIEW_IMPROVEMENTS.md) - Recent improvements
+- [API Docs](http://localhost:8000/api/docs) - Interactive API reference
 
 ---
 
 ## License
 
-MIT License - See LICENSE file for details
-
----
-
-## About
-
-Built as a learning project to transition from traditional ML to LLM engineering. Focus is on clean architecture, structured outputs, and practical production patterns rather than research novelty.
+MIT

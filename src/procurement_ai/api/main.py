@@ -3,13 +3,14 @@ FastAPI Application
 Main API server for Procurement AI
 """
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 import time
 
 from procurement_ai import __version__
-from procurement_ai.api.routes import tenders
+from procurement_ai.api.routes import tenders, web
 from procurement_ai.api.schemas import HealthResponse
 from procurement_ai.api.dependencies import get_db, get_config
 
@@ -18,9 +19,9 @@ app = FastAPI(
     title="Procurement AI API",
     description="AI-powered tender analysis and bid generation",
     version=__version__,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
 # CORS middleware (configure for your needs)
@@ -45,7 +46,8 @@ async def add_process_time_header(request: Request, call_next):
 
 
 # Include routers
-app.include_router(tenders.router)
+app.include_router(web.router)  # Web UI (HTMX)
+app.include_router(tenders.router)  # REST API
 
 
 # Health check endpoint
@@ -85,14 +87,20 @@ def health_check():
     )
 
 
-# Root endpoint
+# Root endpoint - redirect to web UI
 @app.get("/", tags=["root"])
 def read_root():
-    """API root - redirects to documentation"""
+    """Redirect to web dashboard"""
+    return RedirectResponse(url="/web/")
+
+
+@app.get("/api", tags=["root"])
+def api_root():
+    """API information"""
     return {
         "message": "Procurement AI API",
         "version": __version__,
-        "docs": "/docs",
+        "docs": "/api/docs",
         "health": "/health",
     }
 

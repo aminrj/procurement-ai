@@ -79,6 +79,7 @@ class Database:
             autocommit=False,
             autoflush=False,
             bind=self.engine,
+            expire_on_commit=False,  # Keep objects usable after commit/close
         )
     
     @classmethod
