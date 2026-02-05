@@ -40,7 +40,6 @@ router = APIRouter(prefix="/api/v1", tags=["tenders"])
 async def process_tender_background(
     tender_id: int,
     tender_data: Tender,
-    organization_id: int,
     db: DatabaseManager,
     config: Config,
     llm_service: LLMService,
@@ -59,33 +58,58 @@ async def process_tender_background(
 
             # Update tender status
             if result.status == "complete":
-                tender_repo.update_status(tender_id, TenderStatus.ANALYZED)
-            elif result.status.startswith("error"):
-                tender_repo.update_status(tender_id, TenderStatus.ERROR)  # Use ERROR instead of FAILED
+                tender_repo.update_status(
+                    tender_id,
+                    TenderStatus.COMPLETE,
+                    processing_time=result.processing_time,
+                )
+            elif result.status == "error":
+                tender_repo.update_status(
+                    tender_id,
+                    TenderStatus.ERROR,
+                    error_message=result.error,
+                    processing_time=result.processing_time,
+                )
             elif result.status == "filtered_out":
-                tender_repo.update_status(tender_id, TenderStatus.REJECTED)
+                tender_repo.update_status(
+                    tender_id,
+                    TenderStatus.FILTERED_OUT,
+                    processing_time=result.processing_time,
+                )
             elif result.status == "rated_low":
-                tender_repo.update_status(tender_id, TenderStatus.ANALYZED)
+                tender_repo.update_status(
+                    tender_id,
+                    TenderStatus.RATED_LOW,
+                    processing_time=result.processing_time,
+                )
+            else:
+                tender_repo.update_status(
+                    tender_id,
+                    TenderStatus.ERROR,
+                    error_message=f"Unexpected status: {result.status}",
+                    processing_time=result.processing_time,
+                )
 
             # Store analysis
-            if result.filter_result and result.rating_result:
-                analysis_repo.create(
+            if result.filter_result:
+                analysis_repo.upsert(
                     tender_id=tender_id,
                     is_relevant=result.filter_result.is_relevant,
                     confidence=result.filter_result.confidence,
                     filter_categories=[c.value for c in result.filter_result.categories],
                     filter_reasoning=result.filter_result.reasoning,
-                    overall_score=result.rating_result.overall_score,
-                    strategic_fit=result.rating_result.strategic_fit,
-                    win_probability=result.rating_result.win_probability,
-                    strengths=result.rating_result.strengths,
-                    risks=result.rating_result.risks,
-                    recommendation=result.rating_result.recommendation,
+                    overall_score=result.rating_result.overall_score if result.rating_result else None,
+                    strategic_fit=result.rating_result.strategic_fit if result.rating_result else None,
+                    win_probability=result.rating_result.win_probability if result.rating_result else None,
+                    resource_requirements=result.rating_result.effort_required if result.rating_result else None,
+                    strengths=result.rating_result.strengths if result.rating_result else [],
+                    risks=result.rating_result.risks if result.rating_result else [],
+                    recommendation=result.rating_result.recommendation if result.rating_result else None,
                 )
 
             # Store bid document
             if result.bid_document:
-                doc_repo.create(
+                doc_repo.upsert(
                     tender_id=tender_id,
                     executive_summary=result.bid_document.executive_summary,
                     capabilities=result.bid_document.technical_approach,  # Map field
@@ -98,9 +122,11 @@ async def process_tender_background(
         error_msg = str(e)[:500]  # Limit error message length
         with db.get_session() as session:
             tender_repo = TenderRepository(session)
-            tender_repo.update_status(tender_id, TenderStatus.ERROR)
-            # Store error for debugging (if update method supports it)
-            # tender_repo.update(tender_id, error_message=error_msg)
+            tender_repo.update_status(
+                tender_id,
+                TenderStatus.ERROR,
+                error_message=error_msg,
+            )
 
 
 @router.post("/analyze", response_model=AnalysisResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -109,6 +135,7 @@ async def analyze_tender(
     background_tasks: BackgroundTasks,
     organization: Organization = Depends(get_current_organization),
     session: Session = Depends(get_db_session),
+    db: DatabaseManager = Depends(get_db),
     config: Config = Depends(get_config),
     llm_service: LLMService = Depends(get_llm_service),
 ):
@@ -156,13 +183,11 @@ async def analyze_tender(
     )
 
     # Start background processing
-    db = Depends(get_db)
     background_tasks.add_task(
         process_tender_background,
         tender_db.id,
         tender_data,
-        organization.id,
-        get_db(),  # Pass database instance
+        db,
         config,
         llm_service,
     )

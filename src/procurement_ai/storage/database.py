@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from typing import Generator
 import os
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from sqlalchemy.pool import StaticPool
@@ -141,7 +141,7 @@ class Database:
         """Check if database is accessible"""
         try:
             with self.get_session() as session:
-                session.execute("SELECT 1")
+                session.execute(text("SELECT 1"))
             return True
         except Exception:
             return False

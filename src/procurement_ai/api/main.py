@@ -2,17 +2,22 @@
 FastAPI Application
 Main API server for Procurement AI
 """
-from fastapi import FastAPI, Request, status
+import logging
+import time
+
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
-import time
 
 from procurement_ai import __version__
 from procurement_ai.api.routes import tenders, web
 from procurement_ai.api.schemas import HealthResponse
 from procurement_ai.api.dependencies import get_db, get_config
+from procurement_ai.config import Config
+from procurement_ai.storage import DatabaseManager
+
+logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
@@ -27,8 +32,8 @@ app = FastAPI(
 # CORS middleware (configure for your needs)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
+    allow_origins=get_config().CORS_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -52,7 +57,10 @@ app.include_router(tenders.router)  # REST API
 
 # Health check endpoint
 @app.get("/health", response_model=HealthResponse, tags=["health"])
-def health_check():
+def health_check(
+    db: DatabaseManager = Depends(get_db),
+    config: Config = Depends(get_config),
+):
     """
     Health check endpoint
     
@@ -63,7 +71,6 @@ def health_check():
 
     # Check database
     try:
-        db = get_db()
         with db.get_session() as session:
             session.execute(text("SELECT 1"))
         db_status = "healthy"
@@ -72,7 +79,6 @@ def health_check():
 
     # Check LLM (basic check - config exists)
     try:
-        config = get_config()
         llm_status = f"configured: {config.LLM_BASE_URL}"
     except Exception as e:
         llm_status = f"error: {str(e)[:50]}"
@@ -109,9 +115,7 @@ def api_root():
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Catch-all exception handler"""
-    # TODO: Add proper logging here
-    # logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    
+    logger.exception("Unhandled exception for %s", request.url.path)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={

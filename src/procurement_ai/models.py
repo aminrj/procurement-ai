@@ -1,14 +1,8 @@
 """Data models for tenders and processing results"""
 
-from datetime import datetime
 from enum import Enum
-from typing import List, Optional, TYPE_CHECKING
-from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    from .agents.filter import FilterResult
-    from .agents.rating import RatingResult
-    from .agents.generator import BidDocument
+from typing import List, Optional
+from pydantic import BaseModel
 
 
 class TenderCategory(str, Enum):
@@ -32,8 +26,9 @@ class Tender(BaseModel):
 class ProcessedTender(BaseModel):
     """Complete analysis result"""
     tender: Tender
-    filter_result: Optional[dict] = None  # Will be FilterResult
-    rating_result: Optional[dict] = None  # Will be RatingResult
-    bid_document: Optional[dict] = None  # Will be BidDocument
+    filter_result: Optional[object] = None
+    rating_result: Optional[object] = None
+    bid_document: Optional[object] = None
     processing_time: float = 0.0
     status: str = "pending"
+    error: Optional[str] = None

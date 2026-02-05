@@ -2,14 +2,14 @@
 Tests for orchestration (simple_chain).
 """
 import pytest
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
-from src.procurement_ai.models import Tender, TenderCategory
-from src.procurement_ai.orchestration.simple_chain import ProcurementOrchestrator
-from src.procurement_ai.agents.filter import FilterResult
-from src.procurement_ai.agents.rating import RatingResult
-from src.procurement_ai.agents.generator import BidDocument
-from src.procurement_ai.config import Config
+from procurement_ai.models import Tender, TenderCategory
+from procurement_ai.orchestration.simple_chain import ProcurementOrchestrator
+from procurement_ai.agents.filter import FilterResult
+from procurement_ai.agents.rating import RatingResult
+from procurement_ai.agents.generator import BidDocument
+from procurement_ai.config import Config
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def sample_tender():
 def mock_llm_service():
     """Mock LLM service for testing orchestrator"""
     from unittest.mock import Mock, AsyncMock
-    from src.procurement_ai.services.llm import LLMService
+    from procurement_ai.services.llm import LLMService
     
     mock_llm = Mock(spec=LLMService)
     mock_llm.generate_structured = AsyncMock()
@@ -68,9 +68,9 @@ class TestProcurementOrchestrator:
             timeline_estimate="6 months",
         )
         
-        with patch('src.procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter, \
-             patch('src.procurement_ai.orchestration.simple_chain.RatingAgent') as MockRating, \
-             patch('src.procurement_ai.orchestration.simple_chain.DocumentGenerator') as MockGenerator:
+        with patch('procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter, \
+             patch('procurement_ai.orchestration.simple_chain.RatingAgent') as MockRating, \
+             patch('procurement_ai.orchestration.simple_chain.DocumentGenerator') as MockGenerator:
             
             # Configure mocks
             mock_filter_instance = MockFilter.return_value
@@ -109,9 +109,9 @@ class TestProcurementOrchestrator:
             reasoning="Not technology-related",
         )
         
-        with patch('src.procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter, \
-             patch('src.procurement_ai.orchestration.simple_chain.RatingAgent') as MockRating, \
-             patch('src.procurement_ai.orchestration.simple_chain.DocumentGenerator') as MockGenerator:
+        with patch('procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter, \
+             patch('procurement_ai.orchestration.simple_chain.RatingAgent') as MockRating, \
+             patch('procurement_ai.orchestration.simple_chain.DocumentGenerator') as MockGenerator:
             
             mock_filter_instance = MockFilter.return_value
             mock_filter_instance.filter = AsyncMock(return_value=mock_filter_result)
@@ -158,9 +158,9 @@ class TestProcurementOrchestrator:
             recommendation="No-Go - Poor fit",
         )
         
-        with patch('src.procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter, \
-             patch('src.procurement_ai.orchestration.simple_chain.RatingAgent') as MockRating, \
-             patch('src.procurement_ai.orchestration.simple_chain.DocumentGenerator') as MockGenerator:
+        with patch('procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter, \
+             patch('procurement_ai.orchestration.simple_chain.RatingAgent') as MockRating, \
+             patch('procurement_ai.orchestration.simple_chain.DocumentGenerator') as MockGenerator:
             
             mock_filter_instance = MockFilter.return_value
             mock_filter_instance.filter = AsyncMock(return_value=mock_filter_result)
@@ -191,7 +191,7 @@ class TestProcurementOrchestrator:
         """Test error handling in filter stage"""
         from unittest.mock import patch, AsyncMock
         
-        with patch('src.procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter:
+        with patch('procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter:
             mock_filter_instance = MockFilter.return_value
             mock_filter_instance.filter = AsyncMock(
                 side_effect=Exception("LLM connection failed")
@@ -201,8 +201,9 @@ class TestProcurementOrchestrator:
             result = await orchestrator.process_tender(sample_tender)
             
             # Error should be caught and recorded in status
-            assert "error" in result.status.lower()
-            assert "LLM" in result.status or "failed" in result.status
+            assert result.status == "error"
+            assert result.error is not None
+            assert "LLM" in result.error or "failed" in result.error
 
     @pytest.mark.asyncio
     async def test_process_respects_score_threshold(self, sample_tender):
@@ -234,9 +235,9 @@ class TestProcurementOrchestrator:
             timeline_estimate="6 months",
         )
         
-        with patch('src.procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter, \
-             patch('src.procurement_ai.orchestration.simple_chain.RatingAgent') as MockRating, \
-             patch('src.procurement_ai.orchestration.simple_chain.DocumentGenerator') as MockGenerator:
+        with patch('procurement_ai.orchestration.simple_chain.FilterAgent') as MockFilter, \
+             patch('procurement_ai.orchestration.simple_chain.RatingAgent') as MockRating, \
+             patch('procurement_ai.orchestration.simple_chain.DocumentGenerator') as MockGenerator:
             
             mock_filter_instance = MockFilter.return_value
             mock_filter_instance.filter = AsyncMock(return_value=mock_filter_result)

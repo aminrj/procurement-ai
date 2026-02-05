@@ -9,8 +9,12 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy import func, or_
 
 from procurement_ai.api.dependencies import get_db
-from procurement_ai.storage.models import TenderDB, AnalysisResult, TenderStatus
-from procurement_ai.storage.repositories import TenderRepository, AnalysisRepository
+from procurement_ai.storage.models import Organization, TenderDB, AnalysisResult, TenderStatus
+from procurement_ai.storage.repositories import (
+    TenderRepository,
+    AnalysisRepository,
+    BidDocumentRepository,
+)
 from procurement_ai.orchestration.simple_chain import ProcurementOrchestrator
 from procurement_ai.models import Tender as TenderModel
 from procurement_ai.config import Config
@@ -19,6 +23,28 @@ router = APIRouter(prefix="/web", tags=["web"])
 
 # Templates directory
 templates = Jinja2Templates(directory="src/procurement_ai/api/templates")
+
+
+def _resolve_web_org_id(session) -> int | None:
+    """Resolve organization id used by the web UI."""
+    org = (
+        session.query(Organization)
+        .filter(
+            Organization.slug == Config.WEB_ORGANIZATION_SLUG,
+            Organization.is_deleted == False,
+        )
+        .first()
+    )
+    if org:
+        return org.id
+
+    fallback = (
+        session.query(Organization.id)
+        .filter(Organization.is_deleted == False)
+        .order_by(Organization.id.asc())
+        .first()
+    )
+    return fallback[0] if fallback else None
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -30,19 +56,31 @@ async def dashboard(
 ):
     """Main dashboard page"""
     with db.get_session() as session:
+        org_id = _resolve_web_org_id(session)
+        if org_id is None:
+            return templates.TemplateResponse(
+                "dashboard.html",
+                {
+                    "request": request,
+                    "stats": {"total": 0, "pending": 0, "analyzed": 0, "high_rated": 0},
+                    "tenders": [],
+                    "error": "No organization found. Run scripts/setup_api_test.sh first.",
+                },
+            )
+
         # Get statistics
         stats = {
-            "total": session.query(func.count(TenderDB.id)).filter(TenderDB.organization_id == 1).scalar() or 0,
+            "total": session.query(func.count(TenderDB.id)).filter(TenderDB.organization_id == org_id).scalar() or 0,
             "pending": session.query(func.count(TenderDB.id)).filter(
-                TenderDB.organization_id == 1,
+                TenderDB.organization_id == org_id,
                 TenderDB.status == TenderStatus.PENDING
             ).scalar() or 0,
             "analyzed": session.query(func.count(TenderDB.id)).filter(
-                TenderDB.organization_id == 1,
+                TenderDB.organization_id == org_id,
                 TenderDB.status == TenderStatus.COMPLETE
             ).scalar() or 0,
             "high_rated": session.query(func.count(AnalysisResult.id)).join(TenderDB).filter(
-                TenderDB.organization_id == 1,
+                TenderDB.organization_id == org_id,
                 AnalysisResult.overall_score >= 7.0
             ).scalar() or 0,
         }
@@ -51,7 +89,7 @@ async def dashboard(
         query = session.query(TenderDB).options(
             joinedload(TenderDB.analysis)
         ).filter(
-            TenderDB.organization_id == 1,
+            TenderDB.organization_id == org_id,
             TenderDB.is_deleted == False
         )
         
@@ -95,10 +133,14 @@ async def get_tenders(
 ):
     """Get tender list (for HTMX updates)"""
     with db.get_session() as session:
+        org_id = _resolve_web_org_id(session)
+        if org_id is None:
+            return templates.TemplateResponse("tender_list.html", {"request": request, "tenders": []})
+
         query = session.query(TenderDB).options(
             joinedload(TenderDB.analysis)
         ).filter(
-            TenderDB.organization_id == 1,
+            TenderDB.organization_id == org_id,
             TenderDB.is_deleted == False
         )
         
@@ -137,11 +179,16 @@ async def tender_detail(
 ):
     """Tender detail modal"""
     with db.get_session() as session:
+        org_id = _resolve_web_org_id(session)
+        if org_id is None:
+            tender = None
+            return templates.TemplateResponse("tender_detail.html", {"request": request, "tender": tender})
+
         tender = session.query(TenderDB).options(
             joinedload(TenderDB.analysis)
         ).filter(
             TenderDB.id == tender_id,
-            TenderDB.organization_id == 1
+            TenderDB.organization_id == org_id
         ).first()
         
         if tender:
@@ -161,10 +208,15 @@ async def analyze_tender(
 ):
     """Analyze tender with AI pipeline"""
     with db.get_session() as session:
+        org_id = _resolve_web_org_id(session)
+        if org_id is None:
+            return HTMLResponse("<div class='text-red-600'>No organization found</div>", status_code=500)
+
         tender_repo = TenderRepository(session)
         analysis_repo = AnalysisRepository(session)
+        doc_repo = BidDocumentRepository(session)
         
-        tender_db = tender_repo.get_by_id(tender_id, org_id=1)
+        tender_db = tender_repo.get_by_id(tender_id, org_id=org_id)
         if not tender_db:
             return HTMLResponse("<div class='text-red-600'>Tender not found</div>", status_code=404)
         
@@ -204,7 +256,7 @@ async def analyze_tender(
             recommendation = result.rating_result.recommendation if result.rating_result else None
             
             # Save analysis with individual fields
-            analysis = analysis_repo.create(
+            analysis = analysis_repo.upsert(
                 tender_id=tender_id,
                 is_relevant=is_relevant,
                 confidence=confidence,
@@ -218,9 +270,27 @@ async def analyze_tender(
                 risks=risks,
                 recommendation=recommendation
             )
+
+            if result.bid_document:
+                doc_repo.upsert(
+                    tender_id=tender_id,
+                    executive_summary=result.bid_document.executive_summary,
+                    capabilities=result.bid_document.technical_approach,
+                    approach=result.bid_document.timeline_estimate,
+                    value_proposition=result.bid_document.value_proposition,
+                )
             
             # Update tender status
-            tender_db.status = TenderStatus(result.status)
+            if result.status == "complete":
+                tender_db.status = TenderStatus.COMPLETE
+            elif result.status == "filtered_out":
+                tender_db.status = TenderStatus.FILTERED_OUT
+            elif result.status == "rated_low":
+                tender_db.status = TenderStatus.RATED_LOW
+            else:
+                tender_db.status = TenderStatus.ERROR
+            tender_db.processing_time = result.processing_time
+            tender_db.error_message = result.error
             session.commit()
             
             # Prepare analysis for template

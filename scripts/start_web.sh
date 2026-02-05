@@ -1,22 +1,19 @@
 #!/bin/bash
-# Start the Procurement AI web application
+# Start the Procurement AI web application.
 
-echo "🚀 Starting Procurement AI SaaS Application..."
-echo ""
+set -e
 
-# Activate virtual environment
-source venv/bin/activate
+echo "Starting Procurement AI web application"
 
-# Set environment variables
-export PYTHONPATH=src:$PYTHONPATH
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/procurement_ai"
+if [ -f "venv/bin/activate" ]; then
+    source venv/bin/activate
+fi
 
-# Start the server
-echo "📡 Server will be available at:"
-echo "   → Web UI:  http://localhost:8000"
-echo "   → API Docs: http://localhost:8000/api/docs"
-echo ""
+export PYTHONPATH="src:${PYTHONPATH}"
+export DATABASE_URL="${DATABASE_URL:-postgresql://procurement:procurement@localhost:5432/procurement}"
+
+echo "Web UI: http://localhost:8000/web/"
+echo "API Docs: http://localhost:8000/api/docs"
 echo "Press Ctrl+C to stop"
-echo ""
 
-uvicorn src.procurement_ai.api.main:app --reload --port 8000
+uvicorn procurement_ai.api.main:app --reload --port 8000

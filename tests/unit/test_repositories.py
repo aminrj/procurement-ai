@@ -2,10 +2,9 @@
 Tests for storage repositories using SQLite in-memory database.
 Fast unit tests with no external dependencies.
 """
-import pytest
 from datetime import datetime
 
-from src.procurement_ai.storage.models import SubscriptionTier, UserRole, TenderStatus
+from procurement_ai.storage.models import SubscriptionTier, UserRole, TenderStatus
 
 
 class TestOrganizationRepository:

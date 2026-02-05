@@ -1,6 +1,7 @@
 """Simple chain orchestration for procurement workflow"""
 
 from datetime import datetime
+import logging
 
 from ..models import Tender, ProcessedTender
 from ..services.llm import LLMService
@@ -8,6 +9,8 @@ from ..agents.filter import FilterAgent
 from ..agents.rating import RatingAgent
 from ..agents.generator import DocumentGenerator
 from ..config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class ProcurementOrchestrator:
@@ -18,9 +21,9 @@ class ProcurementOrchestrator:
     This is a simple linear workflow - later we'll compare with LangGraph
     """
 
-    def __init__(self, config: Config = None):
+    def __init__(self, config: Config = None, llm_service: LLMService = None):
         self.config = config or Config()
-        self.llm = LLMService(self.config)
+        self.llm = llm_service or LLMService(self.config)
         self.filter_agent = FilterAgent(self.llm, self.config)
         self.rating_agent = RatingAgent(self.llm, self.config)
         self.doc_generator = DocumentGenerator(self.llm, self.config)
@@ -62,10 +65,12 @@ class ProcurementOrchestrator:
             result.status = "complete"
 
         except Exception as e:
-            result.status = f"error: {str(e)}"
+            result.status = "error"
+            result.error = str(e)
+            logger.exception("Tender processing failed")
 
         finally:
             result.processing_time = (datetime.now() - start_time).total_seconds()
-            print(f"\n  Processing time: {result.processing_time:.2f}s")
+            logger.info("Tender processing time: %.2fs", result.processing_time)
 
         return result

@@ -2,17 +2,16 @@
 Shared pytest fixtures and configuration for all tests
 """
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from src.procurement_ai.storage.database import Base, Database
-from src.procurement_ai.storage.repositories import (
+from procurement_ai.storage.database import Base, Database
+from procurement_ai.storage.repositories import (
     OrganizationRepository,
     UserRepository,
     TenderRepository,
     AnalysisRepository,
     BidDocumentRepository,
 )
+from procurement_ai.storage.models import SubscriptionTier, UserRole, TenderStatus
 
 
 # ============================================================================
@@ -81,7 +80,7 @@ def sample_organization(org_repo):
     return org_repo.create(
         name="Test Organization",
         slug="test-org",
-        subscription_tier="PRO",
+        subscription_tier=SubscriptionTier.PRO,
     )
 
 
@@ -93,7 +92,7 @@ def sample_user(user_repo, sample_organization):
         email="test@example.com",
         hashed_password="hashed_password_here",
         full_name="Test User",
-        role="ADMIN",
+        role=UserRole.ADMIN,
     )
 
 
@@ -109,7 +108,7 @@ def sample_tender(tender_repo, sample_organization):
         organization_name="National Cybersecurity Agency",
         deadline="2025-04-15",
         estimated_value="€2,000,000",
-        status="PENDING",
+        status=TenderStatus.PENDING,
     )
 
 

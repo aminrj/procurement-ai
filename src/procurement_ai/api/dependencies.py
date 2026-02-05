@@ -49,9 +49,9 @@ def get_current_organization(
     
     Returns organization object that stays bound to the provided session
     """
-    # Try to find organization by slug (API key = slug for MVP)
+    # Prefer dedicated API key. Fall back to slug for compatibility.
     org_repo = OrganizationRepository(session)
-    org = org_repo.get_by_slug(x_api_key)
+    org = org_repo.get_by_api_key(x_api_key) or org_repo.get_by_slug(x_api_key)
     
     if not org:
         raise HTTPException(

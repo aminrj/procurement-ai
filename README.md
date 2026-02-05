@@ -1,212 +1,111 @@
 # Procurement AI
 
-**LLM-powered tender analysis with multi-agent orchestration**
+Procurement AI is a compact, production-focused project for LLM-based tender analysis.
 
-🎯 **Focus**: Improve LLM prompts → Test with real data → Visualize results
+It is designed for two goals:
+- Learn and iterate quickly on prompt engineering and orchestration.
+- Demonstrate production delivery patterns (API, persistence, migrations, tests, scripts).
 
----
+## Architecture
+
+Core runtime modules:
+- `src/procurement_ai/agents/`: Filter, Rating, and Document Generator agents.
+- `src/procurement_ai/orchestration/simple_chain.py`: Sequential pipeline with early-stop conditions.
+- `src/procurement_ai/services/llm.py`: OpenAI-compatible structured-output client.
+- `src/procurement_ai/storage/`: SQLAlchemy models, DB session management, repositories.
+- `src/procurement_ai/api/`: FastAPI REST endpoints and server-side web views.
+
+Pipeline:
+1. Filter tender relevance.
+2. Rate strategic value and effort.
+3. Generate bid document only when score threshold is met.
+4. Persist analysis and status updates.
+
+## Requirements
+
+- Python 3.11+
+- PostgreSQL (local container is supported)
+- Optional local or remote LLM endpoint compatible with OpenAI chat completions
 
 ## Quick Start
 
+1. Install dependencies in your environment:
 ```bash
-# Test LLM analysis
-python procurement_mvp.py
-
-# (Optional) Start web UI for visualization
-./scripts/start_web.sh
-open http://localhost:8000
-```
-
----
-
-## What This Is
-
-LLM experimentation platform for procurement analysis:
-- **3 AI agents** - Filter, Rating, Generator (the core value)
-- **Web UI** - Visualize LLM outputs, test prompts
-- **Database** - Persist results, compare iterations
-
-**Not a SaaS app** - it's an AI research tool with supporting infrastructure.
-
----
-
-## Core: LLM Agents
-
-**1. Filter Agent** ([filter.py](src/procurement_ai/agents/filter.py))
-- Binary classification: relevant or not?
-- Temperature: 0.1 (precise)
-- Output: relevance + confidence + categories + reasoning
-
-**2. Rating Agent** ([rating.py](src/procurement_ai/agents/rating.py))
-- Multi-dimensional scoring (6 dimensions)
-- Temperature: 0.3 (balanced)
-- Output: strategic fit, win probability, complexity, risk, urgency, effort
-
-**3. Generator Agent** ([generator.py](src/procurement_ai/agents/generator.py))
-- Professional bid document creation
-- Temperature: 0.5 (creative)
-- Output: structured proposal with intro, solution, differentiators
-
-**Orchestrator** ([simple_chain.py](src/procurement_ai/orchestration/simple_chain.py))
-- Sequential pipeline with early stopping
-- Low-rated tenders skip document generation
-
----
-
-## Project Structure
-
-**Core (LLM work):**
-```
-src/procurement_ai/
-├── agents/          # 🎯 Edit prompts here
-│   ├── filter.py
-│   ├── rating.py
-│   └── generator.py
-├── orchestration/   # Pipeline logic
-└── services/llm.py  # LLM abstraction
-```
-
-**Supporting:**
-```
-├── api/       # Web UI (HTMX + Tailwind)
-├── storage/   # Database (PostgreSQL)
-└── scrapers/  # Data collection
-```
-
----
-
-## Installation
-
-```bash
-# 1. Install
 pip install -r requirements.txt
 pip install -e .
-
-# 2. Configure LLM
-# Option A: LM Studio (local)
-# - Start LM Studio on port 1234
-
-# Option B: Groq (cloud)
-export GROQ_API_KEY="your-key"
-export USE_GROQ=true
-
-# 3. Test immediately
-python procurement_mvp.py
 ```
 
-**Optional:** Database + Web UI
-
+2. Start database and run migrations:
 ```bash
-# Start PostgreSQL
 docker-compose up -d postgres
 alembic upgrade head
+```
 
-# Fetch sample data
-python scripts/fetch_and_store.py
+3. Create test organization and API key:
+```bash
+./scripts/setup_api_test.sh
+```
 
-# Start web UI
+4. Start API:
+```bash
 ./scripts/start_web.sh
 ```
 
----
+5. Open:
+- Web UI: `http://localhost:8000/web/`
+- API docs: `http://localhost:8000/api/docs`
 
-## Usage
+## API Usage
 
-**Direct Python (fastest iteration):**
-```python
-from procurement_ai.orchestration.simple_chain import ProcurementOrchestrator
-from procurement_ai.models import Tender
-
-orchestrator = ProcurementOrchestrator()
-tender = Tender(
-    id="test",
-    title="AI Cybersecurity Platform",
-    description="Advanced threat detection...",
-    organization="Government Agency"
-)
-
-result = await orchestrator.process_tender(tender)
-print(f"Relevant: {result.filter_result.is_relevant}")
-print(f"Score: {result.rating_result.overall_score}/10")
+Analyze a tender:
+```bash
+curl -X POST http://localhost:8000/api/v1/analyze \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: test-org-key" \
+  -d '{
+    "title": "AI Security Platform",
+    "description": "Government agency needs AI threat detection",
+    "organization_name": "National Cyber Agency"
+  }'
 ```
 
-**Web UI (best for visualization):**
-- View all tenders: http://localhost:8000
-- Click "Analyze with AI" to test agents
-- Compare results across iterations
-
-**REST API:**
+List tenders:
 ```bash
-curl -X POST http://localhost:8000/api/v1/tenders/analyze \\
-  -H "Content-Type: application/json" \\
-  -d '{"title": "AI Security", "description": "..."}'
+curl -H "X-API-Key: test-org-key" http://localhost:8000/api/v1/tenders
 ```
 
----
+## Data Ingestion
 
-## Improving the LLM
-
-**Workflow:**
-1. Edit prompts in `src/procurement_ai/agents/*.py`
-2. Test: `python procurement_mvp.py` or web UI
-3. Compare results
-4. Iterate
-
-**What to improve:**
-- Filter: Better category detection, few-shot examples
-- Rating: Scoring calibration, weighting adjustments
-- Generator: More persuasive language, better structure
-
-**Experiments:**
-- `experiments/01_prompt_variations.py` - Test different prompts
-- `experiments/02_temperature_impact.py` - Find optimal temperature
-
----
-
-## Tech Stack
-
-**Core:**
-- Python 3.9+ with async/await
-- LM Studio (local) or Groq (cloud)
-- Pydantic for structured outputs
-
-**Supporting:**
-- FastAPI + HTMX (web UI)
-- PostgreSQL + SQLAlchemy (data)
-- TED Europa scraper (source)
-
----
-
-## Tests
-
+Fetch and store TED tenders:
 ```bash
-# Run core agent tests
-pytest tests/unit/test_agents.py -v
+PYTHONPATH=src:$PYTHONPATH python scripts/fetch_and_store.py
+```
 
-# Run all tests
+## Testing
+
+Use your virtual environment:
+```bash
+source venv/bin/activate
 pytest tests/ -v
-
-# Skip slow integration tests
-pytest tests/unit/ -v
 ```
 
-**Test Coverage:**
-- ✅ All 3 agents (filter, rating, generator)
-- ✅ Orchestration pipeline
-- ✅ LLM service abstraction
-- ✅ Database repositories
-- ❌ TED scraper (14 tests failing - not core to LLM work)
+Run smoke scripts:
+```bash
+./scripts/test_api.sh
+./scripts/test_web_ui.sh
+```
 
----
+## Configuration
 
-## Documentation
+Primary environment variables:
+- `DATABASE_URL` (default: `postgresql://procurement:procurement@localhost:5432/procurement`)
+- `LLM_BASE_URL` (default: `http://localhost:1234/v1`)
+- `LLM_MODEL` (default: `openai/gpt-oss-20b`)
+- `CORS_ORIGINS` (comma-separated)
+- `WEB_ORGANIZATION_SLUG` (default: `demo-org`)
 
-- [Web UI Guide](docs/WEB_UI_GUIDE.md) - Using the visualization interface
-- [Code Review](CODE_REVIEW_IMPROVEMENTS.md) - Recent improvements
-- [API Docs](http://localhost:8000/api/docs) - Interactive API reference
+## Notes
 
----
-
-## License
-
-MIT
+- API authentication uses `X-API-Key` per organization.
+- Web UI resolves organization by `WEB_ORGANIZATION_SLUG` and falls back to the first available org.
+- Status values are normalized to: `pending`, `processing`, `filtered_out`, `rated_low`, `complete`, `error`.

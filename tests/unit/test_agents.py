@@ -3,15 +3,14 @@ Tests for AI agents with mocked LLM responses.
 Fast tests without calling actual LLM API.
 """
 import pytest
-from unittest.mock import AsyncMock, Mock, patch
-import json
+from unittest.mock import AsyncMock, Mock
 
-from src.procurement_ai.models import Tender, TenderCategory
-from src.procurement_ai.agents.filter import FilterAgent, FilterResult
-from src.procurement_ai.agents.rating import RatingAgent, RatingResult
-from src.procurement_ai.agents.generator import DocumentGenerator, BidDocument
-from src.procurement_ai.services.llm import LLMService
-from src.procurement_ai.config import Config
+from procurement_ai.models import Tender, TenderCategory
+from procurement_ai.agents.filter import FilterAgent, FilterResult
+from procurement_ai.agents.rating import RatingAgent, RatingResult
+from procurement_ai.agents.generator import DocumentGenerator, BidDocument
+from procurement_ai.services.llm import LLMService
+from procurement_ai.config import Config
 
 
 @pytest.fixture
@@ -32,7 +31,6 @@ def sample_tender():
         organization="National Cybersecurity Agency",
         deadline="2025-06-15",
         estimated_value="€2,000,000",
-        location="Brussels, Belgium",
     )
 
 

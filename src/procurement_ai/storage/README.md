@@ -319,8 +319,6 @@ def list_tenders(...):
 
 ## Next Steps
 
-1. ✅ Database layer implemented
-2. Next: Testing infrastructure (Priority 2)
-3. Then: FastAPI REST API (Priority 3)
-
-See [docs/path-to-saas.md](../../tmp-docs/path-to-saas.md) for complete roadmap.
+1. Database layer implemented
+2. Testing and validation hardening
+3. API and orchestration improvements

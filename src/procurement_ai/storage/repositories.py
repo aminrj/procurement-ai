@@ -8,11 +8,12 @@ Benefits:
 - Type-safe with proper return types
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 from datetime import datetime
+import secrets
 
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc
+from sqlalchemy import desc
 
 from .models import (
     Organization,
@@ -52,12 +53,14 @@ class OrganizationRepository(BaseRepository):
         self,
         name: str,
         slug: str,
-        subscription_tier: SubscriptionTier = SubscriptionTier.FREE
+        subscription_tier: SubscriptionTier = SubscriptionTier.FREE,
+        api_key: Optional[str] = None,
     ) -> Organization:
         """Create new organization"""
         org = Organization(
             name=name,
             slug=slug,
+            api_key=api_key or secrets.token_urlsafe(32),
             subscription_tier=subscription_tier,
         )
         self.session.add(org)
@@ -85,6 +88,17 @@ class OrganizationRepository(BaseRepository):
             )
             .first()
         )
+
+    def get_by_api_key(self, api_key: str) -> Optional[Organization]:
+        """Get organization by API key."""
+        return (
+            self.session.query(Organization)
+            .filter(
+                Organization.api_key == api_key,
+                Organization.is_deleted == False,
+            )
+            .first()
+        )
     
     def list_active(self, limit: int = 100) -> List[Organization]:
         """List active organizations"""
@@ -105,7 +119,7 @@ class OrganizationRepository(BaseRepository):
             return False
         
         org.monthly_analysis_count += increment
-        org.updated_at = datetime.utcnow()
+        org.updated_at = datetime.now()
         return True
     
     def reset_monthly_usage(self, org_id: int) -> bool:
@@ -115,7 +129,7 @@ class OrganizationRepository(BaseRepository):
             return False
         
         org.monthly_analysis_count = 0
-        org.updated_at = datetime.utcnow()
+        org.updated_at = datetime.now()
         return True
     
     def can_analyze(self, org_id: int) -> bool:
@@ -134,7 +148,7 @@ class OrganizationRepository(BaseRepository):
         
         org.is_deleted = True
         org.is_active = False
-        org.updated_at = datetime.utcnow()
+        org.updated_at = datetime.now()
         return True
 
 
@@ -200,8 +214,8 @@ class UserRepository(BaseRepository):
         if not user:
             return False
         
-        user.last_login_at = datetime.utcnow()
-        user.updated_at = datetime.utcnow()
+        user.last_login_at = datetime.now()
+        user.updated_at = datetime.now()
         return True
     
     def soft_delete(self, user_id: int) -> bool:
@@ -212,7 +226,7 @@ class UserRepository(BaseRepository):
         
         user.is_deleted = True
         user.is_active = False
-        user.updated_at = datetime.utcnow()
+        user.updated_at = datetime.now()
         return True
 
 
@@ -337,14 +351,14 @@ class TenderRepository(BaseRepository):
             return False
         
         tender.status = status
-        tender.updated_at = datetime.utcnow()
+        tender.updated_at = datetime.now()
         
         if error_message:
             tender.error_message = error_message
         
-        if processing_time:
+        if processing_time is not None:
             tender.processing_time = processing_time
-        
+
         return True
     
     def soft_delete(self, tender_id: int, org_id: int) -> bool:
@@ -354,7 +368,7 @@ class TenderRepository(BaseRepository):
             return False
         
         tender.is_deleted = True
-        tender.updated_at = datetime.utcnow()
+        tender.updated_at = datetime.now()
         return True
 
 
@@ -382,6 +396,38 @@ class AnalysisRepository(BaseRepository):
         self.session.add(analysis)
         self.session.flush()
         return analysis
+
+    def upsert(
+        self,
+        tender_id: int,
+        is_relevant: bool,
+        confidence: float,
+        filter_categories: Optional[List[str]] = None,
+        filter_reasoning: Optional[str] = None,
+        **kwargs: Any,
+    ) -> AnalysisResult:
+        """Create or update analysis for a tender."""
+        analysis = self.get_by_tender_id(tender_id)
+        if analysis:
+            analysis.is_relevant = is_relevant
+            analysis.confidence = confidence
+            analysis.filter_categories = filter_categories
+            analysis.filter_reasoning = filter_reasoning
+            for key, value in kwargs.items():
+                if hasattr(analysis, key):
+                    setattr(analysis, key, value)
+            analysis.updated_at = datetime.now()
+            self.session.flush()
+            return analysis
+
+        return self.create(
+            tender_id=tender_id,
+            is_relevant=is_relevant,
+            confidence=confidence,
+            filter_categories=filter_categories,
+            filter_reasoning=filter_reasoning,
+            **kwargs,
+        )
     
     def get_by_tender_id(self, tender_id: int) -> Optional[AnalysisResult]:
         """Get analysis for a tender"""
@@ -422,7 +468,7 @@ class AnalysisRepository(BaseRepository):
         analysis.risks = risks
         analysis.requirements = requirements
         analysis.recommendation = recommendation
-        analysis.updated_at = datetime.utcnow()
+        analysis.updated_at = datetime.now()
         
         return True
     
@@ -472,6 +518,38 @@ class BidDocumentRepository(BaseRepository):
         self.session.add(doc)
         self.session.flush()
         return doc
+
+    def upsert(
+        self,
+        tender_id: int,
+        executive_summary: str,
+        capabilities: str,
+        approach: str,
+        value_proposition: str,
+        **kwargs: Any,
+    ) -> BidDocument:
+        """Create or update bid document for a tender."""
+        doc = self.get_by_tender_id(tender_id)
+        if doc:
+            doc.executive_summary = executive_summary
+            doc.capabilities = capabilities
+            doc.approach = approach
+            doc.value_proposition = value_proposition
+            for key, value in kwargs.items():
+                if hasattr(doc, key):
+                    setattr(doc, key, value)
+            doc.updated_at = datetime.now()
+            self.session.flush()
+            return doc
+
+        return self.create(
+            tender_id=tender_id,
+            executive_summary=executive_summary,
+            capabilities=capabilities,
+            approach=approach,
+            value_proposition=value_proposition,
+            **kwargs,
+        )
     
     def get_by_tender_id(self, tender_id: int) -> Optional[BidDocument]:
         """Get bid document for a tender"""

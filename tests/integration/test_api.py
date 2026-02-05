@@ -4,7 +4,6 @@ Tests the full API endpoints with real database
 """
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
 
 from procurement_ai.api.main import app
 from procurement_ai.storage import DatabaseManager
@@ -30,23 +29,57 @@ def test_org(db):
         org = org_repo.create(
             name="Test Organization",
             slug="test-org",
+            api_key="test-org-key",
             subscription_tier=SubscriptionTier.PRO,
         )
-        # Store slug before session closes
-        org_slug = org.slug
+        org_api_key = org.api_key
         org_id = org.id
         
     # Return dict instead of detached object
-    return {"slug": org_slug, "id": org_id}
+    return {"api_key": org_api_key, "id": org_id}
 
 
 @pytest.fixture
 def client(db, test_org):
     """FastAPI test client with mocked database"""
-    from procurement_ai.api.dependencies import get_db
+    from procurement_ai.api.dependencies import get_db, get_llm_service
+
+    class DummyLLMService:
+        async def generate_structured(
+            self,
+            prompt,
+            response_model,
+            system_prompt,
+            temperature=0.1,
+            max_retries=None,
+        ):
+            if response_model.__name__ == "FilterResult":
+                return response_model(
+                    is_relevant=True,
+                    confidence=0.95,
+                    categories=[TenderCategory.CYBERSECURITY],
+                    reasoning="Matches cybersecurity scope",
+                )
+            if response_model.__name__ == "RatingResult":
+                return response_model(
+                    overall_score=8.0,
+                    strategic_fit=8.5,
+                    win_probability=7.5,
+                    effort_required=6.0,
+                    strengths=["Strong fit"],
+                    risks=["Tight timeline"],
+                    recommendation="Pursue",
+                )
+            return response_model(
+                executive_summary="Summary",
+                technical_approach="Approach",
+                value_proposition="Value",
+                timeline_estimate="Timeline",
+            )
 
     # Override dependency
     app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_llm_service] = lambda: DummyLLMService()
 
     with TestClient(app) as client:
         yield client
@@ -57,7 +90,7 @@ def client(db, test_org):
 @pytest.fixture
 def api_headers(test_org):
     """API authentication headers"""
-    return {"X-API-Key": test_org["slug"]}
+    return {"X-API-Key": test_org["api_key"]}
 
 
 class TestHealthEndpoint:

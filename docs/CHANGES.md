@@ -1,76 +1,36 @@
-# Changes Summary - Scraper Simplification
+# Change Summary
 
-## ✅ What Was Done
+Date: February 5, 2026
 
-### 1. **Simplified TED Scraper**
+## Runtime and API stability
 
-**Removed:**
-- ❌ CPV code filtering (not supported in current query format)
-- ❌ Complex field extraction helpers
-- ❌ Unused IT_CPV_CODES constant
+- Fixed orchestrator injection mismatch so background analysis can run reliably.
+- Normalized tender status transitions to values supported by migrations.
+- Added safe upsert behavior for analysis and bid documents to avoid unique-constraint failures on re-analysis.
+- Added processing time and error persistence in tender status updates.
 
-**Kept:**
-- ✅ Simple, working query: `publication-date >= today(-7)`
-- ✅ Basic fields: Notice ID, Date, Country, Buyer
-- ✅ Error handling and retries
-- ✅ Context manager support
+## Authentication and tenancy
 
-**Added:**
-- ✅ `get_tender_details(notice_id)` - method to fetch full XML for detailed analysis
+- Added dedicated organization API keys.
+- API auth now checks `X-API-Key` against organization API key (with temporary slug fallback for compatibility).
+- Added migration to persist API keys for existing organizations.
+- Web routes no longer hardcode `organization_id=1`; they resolve by configured slug and fallback safely.
 
-### 2. **Verified LLM Requirements**
+## Scraper reliability
 
-AI Agents need these fields from Tender model:
-- ✅ `title` - provided
-- ✅ `description` - provided (currently uses title, can be enriched from XML)
-- ✅ `organization` (buyer_name) - provided
-- ✅ `deadline` - available via XML if needed
-- ✅ `estimated_value` - available via XML if needed
+- Standardized TED search contract around one API endpoint and POST payload.
+- Added CPV-filter support in query building.
+- Added explicit extraction helpers for title, description, buyer, CPV, and value.
+- Updated scraper tests to match the implemented contract.
 
-### 3. **Cleaned Up Files**
+## Packaging and developer experience
 
-**Removed:**
-- 🗑️ `docs/docs/` - duplicate nested directory
-- 🗑️ `docs/tmp-docs/` - 18 temporary documentation files
-- 🗑️ Test files after verification
+- Fixed invalid `pyproject.toml` build backend.
+- Removed broken console entry point from `setup.py`.
+- Aligned Python version requirements to 3.11+.
 
-**Created:**
-- ✅ `docs/README.md` - Essential documentation only
-- ✅ `docs/SCRAPER_QUICKSTART.md` - Working API reference
+## Documentation and scripts
 
-### 4. **Updated Examples**
-
-- ✅ `examples/scrape_tenders.py` - Removed cpv_codes parameter
-- ✅ `scripts/ted_scraper_minimal.py` - Already working correctly
-
-## 📊 Current Status
-
-### Working Components
-- ✅ TED Scraper fetches 21,914+ tenders
-- ✅ Returns: ID, Date, Country, Buyer, URL
-- ✅ AI Agents have required fields
-- ✅ Database integration working
-- ✅ All tests passing
-
-### For MVP
-Current implementation is sufficient:
-- Basic tender info for filtering
-- Can fetch full details via `get_tender_details()` when needed
-- Simple, maintainable code
-
-### For Production Enhancement
-When needed, add:
-- XML parsing for full descriptions
-- CPV code filtering (if TED API adds support)
-- Batch processing
-- Caching
-
-## 🎯 Result
-
-**Before**: Complex scraper with unused features
-**After**: Simple, working scraper focused on MVP needs
-
-The codebase is now clean, simple, and ready for production! 🚀
-
----
-Last updated: February 3, 2026
+- Rewrote root and scripts documentation to be concise and accurate.
+- Updated API smoke scripts to use correct docs endpoints and API key behavior.
+- Removed emoji output from scripts and primary docs.

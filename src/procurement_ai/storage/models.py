@@ -53,8 +53,6 @@ class TenderStatus(str, enum.Enum):
     """Processing status of a tender"""
     PENDING = "pending"
     PROCESSING = "processing"
-    ANALYZED = "analyzed"
-    REJECTED = "rejected"
     FILTERED_OUT = "filtered_out"
     RATED_LOW = "rated_low"
     COMPLETE = "complete"
@@ -79,6 +77,7 @@ class Organization(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     slug = Column(String(100), unique=True, nullable=False, index=True)
+    api_key = Column(String(128), unique=True, nullable=False, index=True)
     
     # Subscription
     subscription_tier = Column(

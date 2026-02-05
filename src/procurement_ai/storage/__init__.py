@@ -26,8 +26,6 @@ __all__ = [
     "init_db",
     "Database",
     "DatabaseManager",
-    "init_db",
-    "Database",
     # Models
     "Organization",
     "User",
@@ -39,4 +37,5 @@ __all__ = [
     "UserRepository",
     "TenderRepository",
     "AnalysisRepository",
+    "BidDocumentRepository",
 ]

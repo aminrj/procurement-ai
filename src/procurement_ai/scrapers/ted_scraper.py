@@ -8,7 +8,6 @@ API Documentation: https://docs.ted.europa.eu/api/latest/search.html
 """
 import httpx
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_not_exception_type
 from bs4 import BeautifulSoup
@@ -27,6 +26,10 @@ class TEDScraper:
     
     # TED API endpoint (POST to /v3/notices/search)
     BASE_URL = "https://api.ted.europa.eu"
+    IT_CPV_CODES = [
+        "72000000",  # IT services: consulting, software development, internet and support
+        "48000000",  # Software package and information systems
+    ]
     
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -61,7 +64,8 @@ class TEDScraper:
         self,
         days_back: int = 7,
         limit: int = 100,
-        page: int = 1
+        page: int = 1,
+        cpv_codes: Optional[List[str]] = None,
     ) -> List[Dict]:
         """
         Search for recent tenders.
@@ -81,12 +85,16 @@ class TEDScraper:
             ParseError: If response parsing fails
         """
         # Build TED expert query - recent tenders sorted by date
-        query = f"publication-date >= today(-{days_back}) SORT BY publication-date DESC"
+        query_parts = [f"publication-date >= today(-{days_back})"]
+        if cpv_codes:
+            quoted_codes = " OR ".join([f'cpv="{code}"' for code in cpv_codes])
+            query_parts.append(f"({quoted_codes})")
+        query = " AND ".join(query_parts) + " SORT BY publication-date DESC"
         
         # Build request body for POST
         payload = {
             "query": query,
-            "fields": ["ND", "PD", "OJ", "CY", "AA"],  # Simple fields that work
+            "fields": ["ND", "PD", "AA", "TD", "CPV"],  # Keep fields lightweight and stable
             "page": page,
             "limit": min(limit, 250),  # API max 250 per page
             "scope": "ACTIVE",
@@ -143,20 +151,33 @@ class TEDScraper:
             
             for notice in notices:
                 # Extract key fields from TED API response
-                notice_id = notice.get("ND") or notice.get("publication-number", "")
-                title = notice.get("TD") or notice.get("title", "Untitled Tender")
-                buyer = notice.get("AA") or notice.get("buyer-name", "Unknown Buyer")
-                cpv = notice.get("CPV") or ""
-                pub_date = notice.get("PD") or notice.get("publication-date")
+                notice_id = (
+                    notice.get("ND")
+                    or notice.get("noticeId")
+                    or notice.get("publication-number")
+                    or notice.get("id")
+                    or ""
+                )
+                title = self._extract_title(notice)
+                buyer = self._extract_buyer(notice)
+                cpv_codes = self._extract_cpv_codes(notice)
+                pub_date = (
+                    notice.get("PD")
+                    or notice.get("publicationDate")
+                    or notice.get("publication-date")
+                )
+                deadline = notice.get("deadline") or notice.get("tenderDeadline")
+                estimated_value = self._extract_value(notice)
+                description = self._extract_description(notice)
                 
                 tender = {
                     "external_id": notice_id,
-                    "title": title[:500] if isinstance(title, str) else "Untitled",
-                    "description": title,  # Use title as description for MVP
-                    "buyer_name": buyer if isinstance(buyer, str) else "Unknown Buyer",
-                    "cpv_codes": [cpv] if cpv else [],
-                    "estimated_value": None,  # Not available in basic search
-                    "deadline": None,  # Not in basic fields
+                    "title": title[:500] if isinstance(title, str) else "Untitled Tender",
+                    "description": description,
+                    "buyer_name": buyer,
+                    "cpv_codes": cpv_codes,
+                    "estimated_value": estimated_value,
+                    "deadline": deadline,
                     "published_date": pub_date,
                     "source": "ted_europa",
                     "source_url": self._build_notice_url(notice_id),
@@ -171,6 +192,67 @@ class TEDScraper:
             
         except (KeyError, TypeError) as e:
             raise ParseError(f"Failed to parse tender data: {str(e)}")
+
+    def _extract_title(self, notice: Dict) -> str:
+        """Extract title from common TED payload variants."""
+        title = notice.get("TD") or notice.get("title")
+        if isinstance(title, dict):
+            return title.get("en") or next(iter(title.values()), "Untitled Tender")
+        if isinstance(title, str) and title.strip():
+            return title.strip()
+        return "Untitled Tender"
+
+    def _extract_description(self, notice: Dict) -> str:
+        """Extract description from common TED payload variants."""
+        description = notice.get("description") or notice.get("shortDescription")
+        if isinstance(description, dict):
+            description = description.get("en") or next(iter(description.values()), "")
+        if isinstance(description, str) and description.strip():
+            return description.strip()
+        return "No description available"
+
+    def _extract_buyer(self, notice: Dict) -> str:
+        """Extract buyer name from common TED payload variants."""
+        buyer = notice.get("AA") or notice.get("buyer-name") or notice.get("buyer")
+        if isinstance(buyer, dict):
+            name = buyer.get("name")
+            if isinstance(name, dict):
+                return name.get("en") or next(iter(name.values()), "Unknown buyer")
+            if isinstance(name, str):
+                return name
+        if isinstance(buyer, str) and buyer.strip():
+            return buyer.strip()
+        return "Unknown buyer"
+
+    def _extract_cpv_codes(self, notice: Dict) -> List[str]:
+        """Extract CPV codes from string or list structures."""
+        cpv = notice.get("CPV") or notice.get("cpv")
+        if isinstance(cpv, str) and cpv.strip():
+            return [cpv.strip()]
+        if isinstance(cpv, list):
+            codes = []
+            for item in cpv:
+                if isinstance(item, dict) and item.get("code"):
+                    codes.append(str(item["code"]))
+                elif isinstance(item, str):
+                    codes.append(item)
+            return [code for code in codes if code]
+        return []
+
+    def _extract_value(self, notice: Dict) -> Optional[float]:
+        """Extract estimated value if present."""
+        value = notice.get("value")
+        if not isinstance(value, dict):
+            return None
+        amount = value.get("amount")
+        if amount is None:
+            amount = value.get("estimatedValue")
+        if amount is None:
+            return None
+        try:
+            return float(amount)
+        except (TypeError, ValueError):
+            return None
     
     def _build_notice_url(self, notice_id: str) -> Optional[str]:
         """Build URL to full tender notice."""
