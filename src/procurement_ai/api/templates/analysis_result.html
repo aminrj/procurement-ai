@@ -1,103 +1,130 @@
-<div class="border-t border-gray-200 pt-4 space-y-3">
-    {% if analysis.filter_result %}
-    <div class="flex items-start gap-3">
-        <div class="flex-shrink-0">
-            {% if analysis.filter_result.get('is_relevant') %}
-            <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                <svg class="h-5 w-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                </svg>
-            </div>
+<div class="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-4">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">AI Output</p>
+            <h4 class="text-sm font-semibold text-gray-900">Tender Assessment</h4>
+        </div>
+        {% if analysis.overall_score is not none %}
+        <div class="rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-blue-700 border border-blue-200">
+            Score {{ "%.1f"|format(analysis.overall_score) }}/10
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="rounded-md bg-white border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Relevance</p>
+            {% if analysis.is_relevant %}
+            <p class="mt-1 text-sm font-semibold text-green-700">Relevant</p>
             {% else %}
-            <div class="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
-                <svg class="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                </svg>
-            </div>
+            <p class="mt-1 text-sm font-semibold text-red-700">Not Relevant</p>
             {% endif %}
         </div>
-        <div class="flex-1">
-            <h4 class="text-sm font-medium text-gray-900">Relevance Assessment</h4>
-            <p class="text-sm text-gray-600 mt-1">
-                {{ analysis.filter_result.get('reasoning', 'No reasoning provided') }}
-            </p>
-            {% if analysis.filter_result.get('categories') %}
-            <div class="flex gap-2 mt-2">
-                {% for category in analysis.filter_result.get('categories', []) %}
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                    {{ category }}
-                </span>
-                {% endfor %}
-            </div>
+
+        <div class="rounded-md bg-white border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Confidence</p>
+            <p class="mt-1 text-sm font-semibold text-gray-900">{{ "%.0f"|format((analysis.confidence or 0) * 100) }}%</p>
+        </div>
+
+        <div class="rounded-md bg-white border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Win Probability</p>
+            {% if analysis.win_probability is not none %}
+            <p class="mt-1 text-sm font-semibold text-gray-900">{{ "%.1f"|format(analysis.win_probability) }}/10</p>
+            {% else %}
+            <p class="mt-1 text-sm text-gray-500">Not scored</p>
             {% endif %}
+        </div>
+    </div>
+
+    {% if analysis.filter_categories %}
+    <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Detected Categories</p>
+        <div class="mt-2 flex flex-wrap gap-2">
+            {% for category in analysis.filter_categories %}
+            <span class="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">{{ category }}</span>
+            {% endfor %}
         </div>
     </div>
     {% endif %}
 
-    {% if analysis.rating_result %}
-    <div class="flex items-start gap-3">
-        <div class="flex-shrink-0">
-            <div class="h-8 w-8 rounded-full {% if analysis.overall_score >= 7 %}bg-green-100{% elif analysis.overall_score >= 5 %}bg-yellow-100{% else %}bg-red-100{% endif %} flex items-center justify-center">
-                <span class="text-sm font-bold {% if analysis.overall_score >= 7 %}text-green-700{% elif analysis.overall_score >= 5 %}text-yellow-700{% else %}text-red-700{% endif %}">
-                    {{ "%.0f"|format(analysis.overall_score) }}
-                </span>
-            </div>
+    {% if analysis.filter_reasoning %}
+    <div class="rounded-md bg-white border border-gray-200 p-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Reasoning</p>
+        <p class="mt-1 text-sm text-gray-700">{{ analysis.filter_reasoning }}</p>
+    </div>
+    {% endif %}
+
+    {% if analysis.overall_score is not none %}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="rounded-md bg-white border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Strategic Fit</p>
+            <p class="mt-1 text-sm font-semibold text-gray-900">{{ "%.1f"|format(analysis.strategic_fit or 0) }}/10</p>
         </div>
-        <div class="flex-1">
-            <h4 class="text-sm font-medium text-gray-900">Business Rating</h4>
-            <div class="grid grid-cols-3 gap-3 mt-2 text-xs">
-                <div>
-                    <span class="text-gray-500">Strategic Fit:</span>
-                    <span class="font-semibold ml-1">{{ "%.1f"|format(analysis.rating_result.get('strategic_fit', 0)) }}</span>
-                </div>
-                <div>
-                    <span class="text-gray-500">Win Probability:</span>
-                    <span class="font-semibold ml-1">{{ "%.1f"|format(analysis.rating_result.get('win_probability', 0)) }}</span>
-                </div>
-                <div>
-                    <span class="text-gray-500">Effort:</span>
-                    <span class="font-semibold ml-1">{{ "%.1f"|format(analysis.rating_result.get('effort_required', 0)) }}</span>
-                </div>
-            </div>
-            
-            {% if analysis.rating_result.get('strengths') %}
-            <div class="mt-3">
-                <h5 class="text-xs font-medium text-gray-700 mb-1">Strengths</h5>
-                <ul class="list-disc list-inside text-xs text-gray-600 space-y-0.5">
-                    {% for strength in analysis.rating_result.get('strengths', [])[:3] %}
-                    <li>{{ strength }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% endif %}
-            
-            {% if analysis.rating_result.get('recommendation') %}
-            <p class="text-xs text-gray-600 mt-2 italic">
-                "{{ analysis.rating_result.get('recommendation')[:150] }}{% if analysis.rating_result.get('recommendation')|length > 150 %}...{% endif %}"
+        <div class="rounded-md bg-white border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Effort Required</p>
+            <p class="mt-1 text-sm font-semibold text-gray-900">{{ "%.1f"|format(analysis.resource_requirements or 0) }}/10</p>
+        </div>
+        <div class="rounded-md bg-white border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Model Recommendation</p>
+            <p class="mt-1 text-sm font-semibold {% if (analysis.overall_score or 0) >= 7 %}text-green-700{% elif (analysis.overall_score or 0) >= 5 %}text-yellow-700{% else %}text-red-700{% endif %}">
+                {% if (analysis.overall_score or 0) >= 7 %}Pursue{% elif (analysis.overall_score or 0) >= 5 %}Review{% else %}Decline{% endif %}
             </p>
-            {% endif %}
         </div>
     </div>
     {% endif %}
 
-    {% if analysis.bid_document %}
-    <div class="flex items-start gap-3">
-        <div class="flex-shrink-0">
-            <div class="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                <svg class="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
+    {% if analysis.strengths %}
+    <div class="rounded-md bg-white border border-gray-200 p-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Strengths</p>
+        <ul class="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
+            {% for strength in analysis.strengths %}
+            <li>{{ strength }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if analysis.risks %}
+    <div class="rounded-md bg-white border border-gray-200 p-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Risks</p>
+        <ul class="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
+            {% for risk in analysis.risks %}
+            <li>{{ risk }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if analysis.recommendation %}
+    <div class="rounded-md bg-white border border-gray-200 p-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Recommendation</p>
+        <p class="mt-1 text-sm text-gray-700">{{ analysis.recommendation }}</p>
+    </div>
+    {% endif %}
+
+    {% if tender is defined and tender.bid_document %}
+    <div class="rounded-md border border-purple-200 bg-purple-50 p-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-purple-700">Generated Bid Draft</p>
+        <p class="mt-1 text-sm text-gray-700">
+            {{ tender.bid_document.executive_summary[:280] }}{% if tender.bid_document.executive_summary|length > 280 %}...{% endif %}
+        </p>
+        <details class="mt-2">
+            <summary class="cursor-pointer text-xs font-semibold text-purple-700">Show full generated sections</summary>
+            <div class="mt-2 space-y-2 text-sm text-gray-700">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Technical Approach</p>
+                    <p>{{ tender.bid_document.capabilities }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Value Proposition</p>
+                    <p>{{ tender.bid_document.value_proposition }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Timeline</p>
+                    <p>{{ tender.bid_document.approach }}</p>
+                </div>
             </div>
-        </div>
-        <div class="flex-1">
-            <h4 class="text-sm font-medium text-gray-900">Bid Document Generated</h4>
-            <button 
-                hx-get="/web/bid-document/{{ analysis.id }}"
-                hx-target="#modal-container"
-                class="mt-2 inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
-                View Full Document
-            </button>
-        </div>
+        </details>
     </div>
     {% endif %}
 </div>

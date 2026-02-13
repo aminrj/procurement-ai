@@ -87,7 +87,8 @@ async def dashboard(
         
         # Get tenders with latest analysis
         query = session.query(TenderDB).options(
-            joinedload(TenderDB.analysis)
+            joinedload(TenderDB.analysis),
+            joinedload(TenderDB.bid_document),
         ).filter(
             TenderDB.organization_id == org_id,
             TenderDB.is_deleted == False
@@ -138,7 +139,8 @@ async def get_tenders(
             return templates.TemplateResponse("tender_list.html", {"request": request, "tenders": []})
 
         query = session.query(TenderDB).options(
-            joinedload(TenderDB.analysis)
+            joinedload(TenderDB.analysis),
+            joinedload(TenderDB.bid_document),
         ).filter(
             TenderDB.organization_id == org_id,
             TenderDB.is_deleted == False
@@ -185,7 +187,8 @@ async def tender_detail(
             return templates.TemplateResponse("tender_detail.html", {"request": request, "tender": tender})
 
         tender = session.query(TenderDB).options(
-            joinedload(TenderDB.analysis)
+            joinedload(TenderDB.analysis),
+            joinedload(TenderDB.bid_document),
         ).filter(
             TenderDB.id == tender_id,
             TenderDB.organization_id == org_id
@@ -279,6 +282,8 @@ async def analyze_tender(
                     approach=result.bid_document.timeline_estimate,
                     value_proposition=result.bid_document.value_proposition,
                 )
+                session.flush()
+                tender_db.bid_document = doc_repo.get_by_tender_id(tender_id)
             
             # Update tender status
             if result.status == "complete":
@@ -295,7 +300,7 @@ async def analyze_tender(
             
             # Prepare analysis for template
             tender_db.latest_analysis = analysis
-            
+
             return templates.TemplateResponse("analysis_result.html", {
                 "request": request,
                 "tender": tender_db,

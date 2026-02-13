@@ -11,17 +11,25 @@
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                         Pending
                     </span>
-                    {% elif tender.status == 'analyzed' %}
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Analyzed
-                    </span>
                     {% elif tender.status == 'complete' %}
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         Complete
                     </span>
+                    {% elif tender.status == 'processing' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        Processing
+                    </span>
                     {% elif tender.status == 'filtered_out' %}
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                         Not Relevant
+                    </span>
+                    {% elif tender.status == 'rated_low' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Rated Low
+                    </span>
+                    {% elif tender.status == 'error' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Error
                     </span>
                     {% endif %}
                 </div>
@@ -55,20 +63,23 @@
             </div>
             
             <div class="ml-4 flex-shrink-0 flex flex-col gap-2">
-                {% if tender.status == 'pending' %}
+                {% if tender.status != 'processing' %}
                 <button 
                     hx-post="/web/analyze/{{ tender.id }}"
                     hx-target="#analysis-{{ tender.id }}"
                     hx-swap="innerHTML"
                     hx-indicator="#spinner-{{ tender.id }}"
+                    hx-disabled-elt="this"
+                    hx-on::after-request="htmx.ajax('GET', '/web/tenders', {target: '#tender-list'})"
                     class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <span id="spinner-{{ tender.id }}" class="htmx-indicator">
                         <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
+                        Analyzing...
                     </span>
-                    Analyze with AI
+                    <span class="analyze-label">Analyze with AI</span>
                 </button>
                 {% endif %}
                 
@@ -116,6 +127,9 @@
 }
 .htmx-request .htmx-indicator {
     display: inline;
+}
+.htmx-request .analyze-label {
+    display: none;
 }
 .line-clamp-2 {
     display: -webkit-box;
