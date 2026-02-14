@@ -38,6 +38,12 @@ logs/
 *.key
 
 # =========================
+# Local planning / progress files
+# =========================
+*.local.md
+*.local.*
+
+# =========================
 # Local data & experiment outputs
 # =========================
 data/
