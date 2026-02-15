@@ -11,15 +11,17 @@ This module provides comprehensive evaluation capabilities for the procurement A
 
 from .metrics import (
     FilterMetrics,
+    CategoryMetrics,
     RatingMetrics,
     DocumentMetrics,
     ConfidenceCalibration,
 )
 from .evaluator import Evaluator, EvaluationResult
-from .reporters import ConsoleReporter, JSONReporter, MarkdownReporter
+from .reporters import ConsoleReporter, JSONReporter, MarkdownReporter, ComparisonReporter
 
 __all__ = [
     "FilterMetrics",
+    "CategoryMetrics",
     "RatingMetrics",
     "DocumentMetrics",
     "ConfidenceCalibration",
@@ -28,4 +30,5 @@ __all__ = [
     "ConsoleReporter",
     "JSONReporter",
     "MarkdownReporter",
+    "ComparisonReporter",
 ]
