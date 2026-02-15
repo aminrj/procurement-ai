@@ -38,6 +38,10 @@ class Config:
     MIN_CONFIDENCE: float = 0.6  # Minimum confidence to proceed
     MIN_SCORE_FOR_DOCUMENT: float = 7.0  # Minimum rating to generate docs
     
+    # RAG Configuration
+    RAG_MIN_SIMILARITY: float = 0.6  # Minimum similarity for RAG examples
+    RAG_NUM_EXAMPLES: int = 2  # Number of examples to retrieve
+    
     @classmethod
     def from_env(cls) -> "Config":
         """Create config from environment variables"""

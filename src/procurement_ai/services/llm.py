@@ -158,6 +158,46 @@ FORMATTING RULES:
         
         return cleaned
 
+    async def generate(
+        self,
+        prompt: str,
+        system_prompt: str = "You are a helpful assistant.",
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+    ) -> str:
+        """
+        Generate unstructured text response (for RAG, document generation, etc.)
+        
+        Args:
+            prompt: User prompt
+            system_prompt: System instruction
+            temperature: Creativity (0.0 = deterministic, 1.0 = creative)
+            max_tokens: Maximum response length
+        
+        Returns:
+            Generated text
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ]
+        
+        async with httpx.AsyncClient(timeout=self.config.API_TIMEOUT) as client:
+            response = await client.post(
+                f"{self.base_url}/chat/completions",
+                json={
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                },
+            )
+
+            if response.status_code != 200:
+                raise Exception(f"API error: {response.status_code}")
+
+            return response.json()["choices"][0]["message"]["content"]
+
     async def _call_api(self, messages: list, temperature: float) -> str:
         """Make API call to LM Studio"""
         async with httpx.AsyncClient(timeout=self.config.API_TIMEOUT) as client:
