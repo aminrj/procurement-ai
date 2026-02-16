@@ -87,3 +87,4 @@ htmlcov/
 # LM Studio / local model artifacts (if any get added)
 # =========================
 models/
+/docs/diagrams
